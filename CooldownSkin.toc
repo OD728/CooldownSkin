@@ -1,0 +1,11 @@
+## Interface: 16001
+## Title: |cffcca3ffCooldown Skin|r
+## Notes: Cleaner look for the game's Cooldown Manager icons: square cropped icons, thin borders, a class-colored border while your debuff or buff is up, and crisp timers. /cskin for options.
+## Version: 1.0
+## Author: Ron
+## X-License: MIT
+## SavedVariables: CooldownSkinDB
+## X-Category: Combat
+## IconTexture: Interface\Icons\Spell_Nature_TimeStop
+
+CooldownSkin.lua
