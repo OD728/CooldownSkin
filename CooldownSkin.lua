@@ -1,18 +1,22 @@
 -- Cooldown Skin: restyles the game's Cooldown Manager icons (Essential, Utility and
 -- Tracked Buff icons). The viewers, their layout and their spells stay the game's.
 --
---  * Square icons, cropped, inside a black border (2 px by default). The game's round mask and
---    frame art are removed (art only by alpha).
+--  * Square icons, cropped, inside a black border (2 px by default). The game's round
+--    mask and frame art are removed (art only by alpha).
 --  * While your debuff (or buff) is up, the game normally paints a yellow swipe over
---    the whole icon. Instead the icon stays bright, the border takes your class
---    color, and a dark swipe grows as the debuff runs out.
+--    the whole icon. Instead the icon stays bright and a dark swipe grows as the
+--    debuff runs out. The border stays black (or takes your class color, /cskin
+--    highlight).
 --  * On cooldown: a plain dark square swipe.
 --  * Outlined timer numbers sized to the icon.
 --  * A thin class-colored timer bar above the icon while the debuff is up.
 --
 -- Nothing secret is read or compared. Whether the debuff is up comes from the icon's
 -- wasSetFromAura flag, or, when that is secret, from the swipe color the game just
--- set (yellow = aura, black = cooldown).
+-- set (yellow = aura, black = cooldown). The timer bar is the client's own: an aura
+-- container watches the spell's debuff on the target (and its buff on you) and fills
+-- the bar itself, since in combat the times are secret and an addon may not pass
+-- them on.
 
 local ADDON = ...
 
@@ -22,7 +26,8 @@ local CROP = 0.08            -- trims the icon's own rounded edge
 local SCAN = 0.5             -- seconds between checks for new icons
 
 local DEFAULTS = {
-    activeColor = "class",   -- border while the debuff/buff is up: "class" or { r, g, b }
+    highlight = false,       -- color the border while the debuff/buff is up (else it stays black)
+    activeColor = "class",   -- that color and the timer bar's: "class" or { r, g, b }
     activeSwipe = 0.6,       -- darkness of the swipe while it's up
     cdSwipe = 0.75,          -- darkness of the cooldown swipe
     reverse = true,          -- while it's up, the dark part grows as it runs out
@@ -35,12 +40,13 @@ local DEFAULTS = {
 }
 
 local db
-local skins = setmetatable({}, { __mode = "k" })   -- item -> { border, art, blizzAura }
+local skins = setmetatable({}, { __mode = "k" })   -- item -> parts and state
 local mine = setmetatable({}, { __mode = "k" })    -- our own textures, never hidden
 local pending = setmetatable({}, { __mode = "k" }) -- items to lay out after combat
 local guard = false                                -- our own calls into hooked methods
 
 local function secret(v) return issecretvalue ~= nil and issecretvalue(v) end
+local function plain(v) return type(v) == "number" and not secret(v) and v or nil end
 
 local function accent()
     local c = db.activeColor
@@ -71,82 +77,197 @@ local function isActive(item, p)
 end
 
 -- Timer bar ----------------------------------------------------------------
--- The client fills the bar from a duration object (StatusBar:SetTimerDuration), so
--- no time is read here, secret or not. The duration is whatever the game just gave
--- the icon's cooldown: its debuff/buff time while that's up.
+-- A client AuraContainer per unit (your debuffs on the target, your buffs on you),
+-- matched by the icon's spell ids. While the aura is up the client shows one button
+-- and fills the StatusBar handed to it (SetDurationBar); the addon never touches the
+-- time. The button locks once initializeFrame returns, so it's dressed there.
 
-local function timerArgs()
-    local E = type(Enum) == "table" and Enum or {}
-    return E.StatusBarInterpolation and E.StatusBarInterpolation.Immediate,
-        E.StatusBarTimerDirection and E.StatusBarTimerDirection.RemainingTime
+-- Every spell id the icon's cooldown stands for, as a set. nil if none can be read.
+local function spellIDsOf(item)
+    local cid = plain(item.cooldownID)
+    local CV = _G.C_CooldownViewer
+    if not cid or type(CV) ~= "table" or type(CV.GetCooldownViewerCooldownInfo) ~= "function" then return nil end
+    local ok, info = pcall(CV.GetCooldownViewerCooldownInfo, cid)
+    if not ok or type(info) ~= "table" then return nil end
+    local ids, list = {}, {}
+    local function add(s)
+        s = plain(s)
+        if s and s > 0 and not ids[s] then ids[s] = true; list[#list + 1] = s end
+    end
+    for _, k in ipairs({ "spellID", "overrideSpellID", "overrideTooltipSpellID", "linkedSpellID" }) do add(info[k]) end
+    if type(info.linkedSpellIDs) == "table" then
+        for _, s in ipairs(info.linkedSpellIDs) do add(s) end
+    end
+    -- Ranks: the rank you know of each spell, by name (its aura carries that id).
+    if C_Spell and C_Spell.GetSpellName and C_Spell.GetSpellInfo then
+        for i = 1, #list do
+            local okN, name = pcall(C_Spell.GetSpellName, list[i])
+            if okN and type(name) == "string" and not secret(name) then
+                local okI, si = pcall(C_Spell.GetSpellInfo, name)
+                if okI and type(si) == "table" then add(si.spellID) end
+            end
+        end
+    end
+    if #list == 0 then return nil end
+    table.sort(list)
+    return ids, cid .. ":" .. table.concat(list, ",")
 end
 
-local function feedDuration(p, d)
-    if type(d) == "nil" or not p.bar or type(p.bar.SetTimerDuration) ~= "function" then
-        p.hasTime = false
+local function durationBarOptions()
+    local opts = {}
+    local D = type(Enum) == "table" and Enum.StatusBarTimerDirection
+    if type(D) == "table" and D.RemainingTime then opts.direction = D.RemainingTime end
+    local U = _G.C_AuraContainerUtil
+    if type(U) == "table" and type(U.ProcessCustomAuraButtonDurationBarOptions) == "function" then
+        local ok, o = pcall(U.ProcessCustomAuraButtonDurationBarOptions, opts)
+        if ok and type(o) == "table" then opts = o end
+    end
+    return opts
+end
+
+-- Dresses the client's button: black edge, dark empty part, fill in the accent.
+local function initBarButton(p, btn)
+    local function try(fn, ...) return pcall(fn, ...) end
+    p.made = (p.made or 0) + 1
+    local w, h, px = p.barW, p.barH, p.px
+    try(btn.SetSize, btn, w, h)
+    local edge = btn:CreateTexture(nil, "BACKGROUND", nil, -8)
+    try(edge.SetPoint, edge, "TOPLEFT", btn, "TOPLEFT", 0, 0)
+    try(edge.SetSize, edge, w, h)
+    try(edge.SetColorTexture, edge, 0, 0, 0, 1)
+    local bar = CreateFrame("StatusBar", nil, btn)
+    try(bar.SetPoint, bar, "TOPLEFT", btn, "TOPLEFT", px, -px)
+    try(bar.SetSize, bar, math.max(1, w - 2 * px), math.max(1, h - 2 * px))
+    try(bar.SetStatusBarTexture, bar, SQUARE)
+    try(bar.SetMinMaxValues, bar, 0, 1)
+    local back = bar:CreateTexture(nil, "BACKGROUND")
+    try(back.SetAllPoints, back, bar)
+    try(back.SetColorTexture, back, 0.12, 0.12, 0.12, 0.9)
+    local r, g, b = accent()
+    try(bar.SetStatusBarColor, bar, r, g, b, 1)
+    -- The client wants an icon; this one is never seen.
+    local icon = btn:CreateTexture(nil, "ARTWORK")
+    try(icon.SetSize, icon, 1, 1)
+    try(icon.SetPoint, icon, "TOPLEFT", btn, "TOPLEFT", 0, 0)
+    try(icon.SetAlpha, icon, 0)
+    try(btn.SetIcon, btn, icon)
+    local ok, err = try(btn.SetDurationBar, btn, bar, durationBarOptions())
+    if not ok then p.barErr = "SetDurationBar: " .. tostring(err) end
+    if btn.SetMouseMotionEnabled then try(btn.SetMouseMotionEnabled, btn, false) end
+    if btn.EnableMouse then try(btn.EnableMouse, btn, false) end
+end
+
+local function buildContainer(p, unit, filter, ids)
+    local ok, c = pcall(CreateFrame, "AuraContainer", nil, p.barFrame, "CustomAuraContainerTemplate")
+    if not ok or not c then p.barErr = "AuraContainer: " .. tostring(c); return end
+    pcall(c.EnableMouse, c, false)
+    pcall(c.SetAllPoints, c, p.barFrame)
+    pcall(c.SetFlowLayoutAnchorPoint, c, "TOPLEFT")
+    local fd = _G.AnchorUtil and _G.AnchorUtil.FlowDirection
+    if type(fd) == "table" then pcall(c.SetFlowLayoutGrowthDirection, c, fd.Right, fd.Down) end
+    pcall(c.SetFlowLayoutMaximumLineSize, c, p.barW)
+    local SM, SD = _G.AuraContainerSortMethod, _G.AuraContainerSortDirection
+    local opts = {
+        candidateFilters = { includeSpellIDs = ids },
+        maxFrameCount = 1,
+        sortMethod = type(SM) == "table" and SM.ExpirationOnly or nil,
+        sortDirection = type(SD) == "table" and SD.Normal or nil,
+        layout = { layoutIndex = 1, elementWidth = p.barW, elementHeight = p.barH, elementSpacing = 0 },
+        initializeFrame = function(btn) initBarButton(p, btn) end,
+    }
+    local ok2, err = pcall(c.AddAuraGroup, c, "a", filter, opts)
+    if not ok2 then p.barErr = "AddAuraGroup: " .. tostring(err); return end
+    pcall(c.SetUnit, c, unit)
+    pcall(c.SetEnabled, c, true)
+    c:Show()
+    p.containers[#p.containers + 1] = { c = c, unit = unit }
+end
+
+local function dropContainers(p)
+    for _, k in ipairs(p.containers or {}) do
+        pcall(k.c.SetEnabled, k.c, false)
+        k.c:Hide()
+    end
+    p.containers = {}
+end
+
+-- Builds the containers for the icon's current spell, or retargets them when the
+-- game reused the icon for another spell. Out of combat only; waits otherwise.
+local function setupBar(item, p)
+    if db.bar == "off" then
+        if p.barKey then dropContainers(p); p.barKey = nil end
         return
     end
-    local I, D = timerArgs()
-    p.hasTime = pcall(p.bar.SetTimerDuration, p.bar, d, I, D)
-end
-
-local function feedStart(p, start, dur)
-    local U = _G.C_DurationUtil
-    if type(U) ~= "table" or type(U.CreateDuration) ~= "function" then p.hasTime = false; return end
-    p.span = p.span or U.CreateDuration()
-    if not pcall(p.span.SetTimeFromStart, p.span, start, dur) then p.hasTime = false; return end
-    feedDuration(p, p.span)
+    local ids, key = spellIDsOf(item)
+    if not ids then p.barErr = "no spell ids for this icon"; return end
+    local size = p.barW .. "x" .. p.barH
+    if p.barKey == key and p.barSize == size then return end
+    if InCombatLockdown() then pending[item] = true; return end
+    p.barErr = nil
+    if p.barSize == size and p.containers and #p.containers > 0 then
+        -- Same size, new spell: just swap the filter.
+        local okAll = true
+        for _, k in ipairs(p.containers) do
+            if not pcall(k.c.SetAuraGroupCandidateFilters, k.c, "a", { includeSpellIDs = ids }) then okAll = false end
+        end
+        if okAll then p.barKey, p.ids = key, ids; return end
+    end
+    dropContainers(p)
+    buildContainer(p, "target", "HARMFUL|PLAYER", ids)
+    buildContainer(p, "player", "HELPFUL", ids)
+    p.barKey, p.barSize, p.ids = key, size, ids
 end
 
 local function makeBar(item, p)
     local h = CreateFrame("Frame", nil, item)
     h:SetFrameLevel(item:GetFrameLevel() + 5)
-    local edge = h:CreateTexture(nil, "BACKGROUND", nil, -8)
-    edge:SetAllPoints(h)
-    edge:SetColorTexture(0, 0, 0, 1)
-    local bar = CreateFrame("StatusBar", nil, h)
-    bar:SetStatusBarTexture(SQUARE)
-    bar:SetMinMaxValues(0, 1)
-    bar:SetValue(0)
-    local back = bar:CreateTexture(nil, "BACKGROUND")
-    back:SetAllPoints(bar)
-    back:SetColorTexture(0.12, 0.12, 0.12, 0.9)
-    h:Hide()
-    p.barFrame, p.bar = h, bar
+    p.barFrame = h
+    p.containers = {}
 end
 
 local function placeBar(item, p)
     local h = p.barFrame
     if not h then return end
     local px = pixels(item, 1)
+    local w = item:GetWidth()
+    if type(w) ~= "number" or secret(w) or w <= 0 then w = 36 end
+    p.px, p.barW, p.barH = px, w, pixels(item, db.barHeight) + 2 * px
     h:ClearAllPoints()
     if db.bar == "bottom" then
         h:SetPoint("TOPLEFT", item, "BOTTOMLEFT", 0, -px)
-        h:SetPoint("TOPRIGHT", item, "BOTTOMRIGHT", 0, -px)
     else
         h:SetPoint("BOTTOMLEFT", item, "TOPLEFT", 0, px)
-        h:SetPoint("BOTTOMRIGHT", item, "TOPRIGHT", 0, px)
     end
-    h:SetHeight(pixels(item, db.barHeight) + 2 * px)
-    p.bar:ClearAllPoints()
-    p.bar:SetPoint("TOPLEFT", h, "TOPLEFT", px, -px)
-    p.bar:SetPoint("BOTTOMRIGHT", h, "BOTTOMRIGHT", -px, px)
+    h:SetSize(p.barW, p.barH)
+    h:SetShown(db.bar ~= "off")
+    setupBar(item, p)
 end
 
--- Swipe and border for the current state.
+local function retarget()
+    for _, p in pairs(skins) do
+        for _, k in ipairs(p.containers or {}) do
+            if k.unit == "target" then
+                pcall(k.c.SetUnit, k.c, "target")
+                pcall(k.c.UpdateAllAuras, k.c)
+            end
+        end
+    end
+end
+
+-- Swipe and border --------------------------------------------------------
+
 local function paint(item)
     local p = skins[item]
     local cd = item.Cooldown
     if not p or type(cd) ~= "table" then return end
     guard = true
-    local active = isActive(item, p)
-    if p.barFrame then
-        p.barFrame:SetShown(db.bar ~= "off" and active and p.hasTime == true)
-    end
-    if active then
-        local r, g, b = accent()
-        p.border:SetColorTexture(r, g, b, 1)
-        if p.bar then p.bar:SetStatusBarColor(r, g, b, 1) end
+    if isActive(item, p) then
+        if db.highlight then
+            local r, g, b = accent()
+            p.border:SetColorTexture(r, g, b, 1)
+        else
+            p.border:SetColorTexture(0, 0, 0, 1)
+        end
         pcall(cd.SetSwipeColor, cd, 0, 0, 0, db.activeSwipe)
         if cd.SetReverse then pcall(cd.SetReverse, cd, db.reverse) end
     else
@@ -241,27 +362,10 @@ local function hookCooldown(item, p)
         end
         paint(item)
     end)
-    -- The time the game gives the swipe also feeds the timer bar.
-    if type(cd.SetCooldown) == "function" then
-        hooksecurefunc(cd, "SetCooldown", function(_, start, dur)
-            if guard then return end
-            feedStart(p, start, dur)
-            paint(item)
-        end)
-    end
-    if type(cd.SetCooldownFromDurationObject) == "function" then
-        hooksecurefunc(cd, "SetCooldownFromDurationObject", function(_, d)
-            if guard then return end
-            feedDuration(p, d)
-            paint(item)
-        end)
-    end
-    if type(cd.Clear) == "function" then
-        hooksecurefunc(cd, "Clear", function()
-            if guard then return end
-            p.hasTime = false
-            paint(item)
-        end)
+    for _, m in ipairs({ "SetCooldown", "SetCooldownFromDurationObject", "Clear" }) do
+        if type(cd[m]) == "function" then
+            hooksecurefunc(cd, m, function() if not guard then paint(item) end end)
+        end
     end
 end
 
@@ -309,7 +413,15 @@ local function scan()
                 hookedViewers[v] = true
                 v:HookScript("OnShow", function(self) eachItem(self, function(i) skin(i); refresh(i) end) end)
             end
-            eachItem(v, skin)
+            eachItem(v, function(item)
+                if skins[item] then
+                    -- The game may have reused this icon for another spell.
+                    local p = skins[item]
+                    if p.barW and not InCombatLockdown() then setupBar(item, p) end
+                else
+                    skin(item)
+                end
+            end)
         end
     end
 end
@@ -333,18 +445,35 @@ local function parseColor(a, b, c)
     return { r, g, bl }
 end
 
+-- The bars' colors are set when the client makes their buttons, so a color change
+-- builds them again (out of combat).
+local function rebuildBars()
+    for item, p in pairs(skins) do
+        dropContainers(p)
+        p.barKey, p.barSize = nil, nil
+        refresh(item)
+    end
+end
+
 SLASH_COOLDOWNSKIN1 = "/cskin"
 SLASH_COOLDOWNSKIN2 = "/cooldownskin"
 SlashCmdList.COOLDOWNSKIN = function(msg)
     local cmd, a, b, c = strsplit(" ", strtrim(msg or ""):lower())
-    if cmd == "color" and a == "class" then
+    if cmd == "highlight" then
+        db.highlight = not db.highlight
+        say(db.highlight and "border while up: colored" or "border while up: black")
+    elseif cmd == "color" and a == "class" then
         db.activeColor = "class"
-        say("border while up: class color")
+        say("bar and highlight: class color")
+        if not InCombatLockdown() then rebuildBars() end
+        return refreshAll()
     elseif cmd == "color" then
         local col = parseColor(a, b, c)
         if not col then return say("usage: /cskin color class  or  /cskin color 150 80 230") end
         db.activeColor = col
-        say("border while up: custom color")
+        say("bar and highlight: custom color")
+        if not InCombatLockdown() then rebuildBars() end
+        return refreshAll()
     elseif cmd == "reverse" then
         db.reverse = not db.reverse
         say(db.reverse and "the swipe grows as the debuff runs out" or "the swipe shrinks as the debuff runs out")
@@ -363,18 +492,44 @@ SlashCmdList.COOLDOWNSKIN = function(msg)
     elseif cmd == "barheight" and tonumber(a) then
         db.barHeight = math.max(1, math.min(12, math.floor(tonumber(a))))
         say("timer bar height: " .. db.barHeight .. " px")
+    elseif cmd == "debug" then
+        local n = 0
+        for item, p in pairs(skins) do
+            if item:IsVisible() then
+                n = n + 1
+                local ids = {}
+                for s in pairs(p.ids or {}) do ids[#ids + 1] = s end
+                table.sort(ids)
+                local shown = 0
+                for _, k in ipairs(p.containers or {}) do
+                    for _, child in ipairs({ k.c:GetChildren() }) do
+                        if child:IsShown() then shown = shown + 1 end
+                    end
+                end
+                say(string.format("icon %d (cooldown %s): up=%s spells=%s containers=%d buttons made=%d shown=%d error=%s",
+                    n, tostring(plain(item.cooldownID)), tostring(isActive(item, p)),
+                    #ids > 0 and table.concat(ids, ",") or "none", #(p.containers or {}),
+                    p.made or 0, shown, tostring(p.barErr)))
+            end
+        end
+        say(string.format("%d icons shown, in combat=%s", n, tostring(InCombatLockdown())))
+        return
     elseif cmd == "reset" then
         CooldownSkinDB = CopyTable(DEFAULTS)
         db = CooldownSkinDB
+        db.v = 2
         say("settings reset")
+        if not InCombatLockdown() then rebuildBars() end
     else
-        say("/cskin color class | color r g b  - border while your debuff is up")
+        say("/cskin highlight  - color the border while your debuff is up (on/off)")
+        say("/cskin color class | color r g b  - color of the bar and highlight")
         say("/cskin reverse  - flip which way the debuff swipe runs")
         say("/cskin border 0-4  - border thickness in pixels")
         say("/cskin bar top | bottom | off  - timer bar while your debuff is up")
         say("/cskin barheight 1-12  - timer bar height in pixels")
         say("/cskin text 0.2-0.8  - timer size")
         say("/cskin dark 0-1  - swipe darkness while up")
+        say("/cskin debug  - why a timer bar isn't showing")
         say("/cskin reset")
         return
     end
@@ -388,6 +543,7 @@ f:RegisterEvent("ADDON_LOADED")
 f:RegisterEvent("PLAYER_ENTERING_WORLD")
 f:RegisterEvent("PLAYER_TARGET_CHANGED")
 f:RegisterEvent("PLAYER_REGEN_ENABLED")
+f:RegisterEvent("SPELLS_CHANGED")
 f:RegisterUnitEvent("UNIT_AURA", "target", "player")
 
 local queued = false
@@ -423,7 +579,15 @@ f:SetScript("OnEvent", function(_, event, arg)
         refreshAll()
     elseif event == "PLAYER_REGEN_ENABLED" then
         for item in pairs(pending) do refresh(item) end
+    elseif event == "SPELLS_CHANGED" then
+        -- A new rank learned: its id joins the icon's spells.
+        if not InCombatLockdown() then
+            for item, p in pairs(skins) do
+                if p.barW then p.barKey = nil; setupBar(item, p) end
+            end
+        end
     else
+        if event == "PLAYER_TARGET_CHANGED" then retarget() end
         -- Target or aura changes: the game updates its icons, then we repaint.
         paintSoon()
     end
