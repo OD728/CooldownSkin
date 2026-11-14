@@ -37,7 +37,20 @@ local DEFAULTS = {
     hideBling = true,        -- no flash when a cooldown finishes
     bar = "top",             -- timer bar while the debuff/buff is up: "top", "bottom" or "off"
     barHeight = 4,           -- its height in screen pixels (plus a 1 px border)
+    barColor = "mix",        -- a BAR_PALETTES name, "class", or "mix" (each spell its own)
+    barGlow = true,          -- spark at the bar's moving end
 }
+
+-- Gradient pairs for the timer bar, left to right.
+local BAR_PALETTES = {
+    neon   = { { 0.00, 1.00, 1.00 }, { 1.00, 0.00, 1.00 } },   -- cyan to magenta
+    toxic  = { { 0.60, 1.00, 0.00 }, { 0.00, 1.00, 0.60 } },   -- lime to mint
+    sunset = { { 1.00, 0.45, 0.00 }, { 1.00, 0.00, 0.55 } },   -- orange to hot pink
+    void   = { { 0.65, 0.00, 1.00 }, { 0.00, 0.55, 1.00 } },   -- violet to electric blue
+    fel    = { { 0.15, 1.00, 0.10 }, { 0.85, 1.00, 0.00 } },   -- fel green to yellow
+    ice    = { { 0.70, 0.95, 1.00 }, { 0.15, 0.40, 1.00 } },   -- frost to deep blue
+}
+local MIX = { "neon", "toxic", "sunset", "void", "fel", "ice" }
 
 local db
 local skins = setmetatable({}, { __mode = "k" })   -- item -> parts and state
@@ -125,13 +138,39 @@ local function durationBarOptions()
     return opts
 end
 
--- Dresses the client's button: black edge, dark empty part, fill in the accent.
+-- The bar's two colors (left, right) for this icon.
+local function barColors(p)
+    local name = db.barColor
+    if name == "mix" then
+        local low
+        for s in pairs(p.ids or {}) do if not low or s < low then low = s end end
+        name = MIX[((low or 0) % #MIX) + 1]
+    end
+    local pal = BAR_PALETTES[name]
+    if pal then return pal[1], pal[2] end
+    -- "class" (or a custom /cskin color): a darker shade into the full color.
+    local r, g, b = accent()
+    return { r * 0.55, g * 0.55, b * 0.55 }, { math.min(1, r * 1.15), math.min(1, g * 1.15), math.min(1, b * 1.15) }
+end
+
+local function gradient(tex, a, b)
+    if CreateColor and tex.SetGradient then
+        local ok = pcall(tex.SetGradient, tex, "HORIZONTAL", CreateColor(a[1], a[2], a[3], 1), CreateColor(b[1], b[2], b[3], 1))
+        if ok then return end
+    end
+    pcall(tex.SetVertexColor, tex, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2, (a[3] + b[3]) / 2, 1)
+end
+
+-- Dresses the client's button: thin black edge, a dark tint for the empty part, a
+-- gradient fill, and a spark riding the fill's end. The client locks the button once
+-- this returns, so a color change builds the buttons again (rebuildBars).
 local function initBarButton(p, btn)
     local function try(fn, ...) return pcall(fn, ...) end
     p.made = (p.made or 0) + 1
     local w, h, px = p.barW, p.barH, p.px
+    local left, right = barColors(p)
     try(btn.SetSize, btn, w, h)
-    local edge = btn:CreateTexture(nil, "BACKGROUND", nil, -8)
+    local edge = btn:CreateTexture(nil, "BACKGROUND", nil, -7)
     try(edge.SetPoint, edge, "TOPLEFT", btn, "TOPLEFT", 0, 0)
     try(edge.SetSize, edge, w, h)
     try(edge.SetColorTexture, edge, 0, 0, 0, 1)
@@ -142,9 +181,18 @@ local function initBarButton(p, btn)
     try(bar.SetMinMaxValues, bar, 0, 1)
     local back = bar:CreateTexture(nil, "BACKGROUND")
     try(back.SetAllPoints, back, bar)
-    try(back.SetColorTexture, back, 0.12, 0.12, 0.12, 0.9)
-    local r, g, b = accent()
-    try(bar.SetStatusBarColor, bar, r, g, b, 1)
+    try(back.SetColorTexture, back, left[1] * 0.15, left[2] * 0.15, left[3] * 0.15, 0.95)
+    local fill = bar:GetStatusBarTexture()
+    if fill then gradient(fill, left, right) end
+    if db.barGlow and fill then
+        -- Anchored to the fill's right edge, so it moves with the client's fill.
+        local spark = bar:CreateTexture(nil, "OVERLAY")
+        try(spark.SetTexture, spark, "Interface\\CastingBar\\UI-CastingBar-Spark")
+        try(spark.SetBlendMode, spark, "ADD")
+        try(spark.SetSize, spark, math.max(6, h * 1.6), math.max(8, h * 3))
+        try(spark.SetPoint, spark, "CENTER", fill, "RIGHT", 0, 0)
+        try(spark.SetVertexColor, spark, right[1], right[2], right[3], 1)
+    end
     -- The client wants an icon; this one is never seen.
     local icon = btn:CreateTexture(nil, "ARTWORK")
     try(icon.SetSize, icon, 1, 1)
@@ -489,6 +537,23 @@ SlashCmdList.COOLDOWNSKIN = function(msg)
     elseif cmd == "bar" and (a == "top" or a == "bottom" or a == "off") then
         db.bar = a
         say(a == "off" and "timer bar: off" or ("timer bar: " .. a))
+    elseif cmd == "barcolor" and (a == "mix" or a == "class" or BAR_PALETTES[a]) then
+        db.barColor = a
+        say("timer bar colors: " .. a)
+        if InCombatLockdown() then return say("shows after combat") end
+        rebuildBars()
+        return
+    elseif cmd == "barcolor" then
+        local names = {}
+        for k in pairs(BAR_PALETTES) do names[#names + 1] = k end
+        table.sort(names)
+        return say("/cskin barcolor mix | class | " .. table.concat(names, " | "))
+    elseif cmd == "barglow" then
+        db.barGlow = not db.barGlow
+        say(db.barGlow and "bar spark: on" or "bar spark: off")
+        if InCombatLockdown() then return say("shows after combat") end
+        rebuildBars()
+        return
     elseif cmd == "barheight" and tonumber(a) then
         db.barHeight = math.max(1, math.min(12, math.floor(tonumber(a))))
         say("timer bar height: " .. db.barHeight .. " px")
@@ -527,6 +592,8 @@ SlashCmdList.COOLDOWNSKIN = function(msg)
         say("/cskin border 0-4  - border thickness in pixels")
         say("/cskin bar top | bottom | off  - timer bar while your debuff is up")
         say("/cskin barheight 1-12  - timer bar height in pixels")
+        say("/cskin barcolor mix | class | neon | toxic | sunset | void | fel | ice")
+        say("/cskin barglow  - spark at the bar's end (on/off)")
         say("/cskin text 0.2-0.8  - timer size")
         say("/cskin dark 0-1  - swipe darkness while up")
         say("/cskin debug  - why a timer bar isn't showing")

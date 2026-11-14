@@ -6,8 +6,8 @@
 - While your debuff (or buff) is up, the yellow wash is gone: the icon stays bright and a
   dark swipe grows as it runs out. The border stays black, or takes your class color
   with `/cskin highlight`.
-- A thin class-colored timer bar above the icon while the debuff is up, filled by the
-  game client itself, so it keeps running in combat.
+- A thin timer bar above the icon while the debuff is up, in neon gradients with a
+  spark at its end. The game client fills it itself, so it keeps running in combat.
 - Outlined timer numbers sized to the icon.
 
 The Cooldown Manager's layout, spells and Edit Mode settings stay the game's own.
@@ -29,6 +29,8 @@ Copy this repository's files into a folder named `CooldownSkin` inside
 | `/cskin border 0-4` | Border thickness in pixels |
 | `/cskin bar top \| bottom \| off` | Where the timer bar goes, or none |
 | `/cskin barheight 1-12` | Timer bar height in pixels |
+| `/cskin barcolor <name>` | Bar colors: `mix` (each spell its own, default), `class`, `neon`, `toxic`, `sunset`, `void`, `fel`, `ice` |
+| `/cskin barglow` | Spark at the bar's end (on/off) |
 | `/cskin reverse` | Flip which way the debuff swipe runs |
 | `/cskin dark 0-1` | Swipe darkness while the debuff is up |
 | `/cskin text 0.2-0.8` | Timer number size |
