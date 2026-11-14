@@ -8,6 +8,8 @@
   with `/cskin highlight`.
 - A thin timer bar above the icon while the debuff is up, in neon gradients with a
   spark at its end. The game client fills it itself, so it keeps running in combat.
+  It covers your debuffs on an enemy, your HoTs and buffs on a friendly target, and
+  buffs on yourself, whichever rank you cast.
 - Outlined timer numbers sized to the icon.
 
 The Cooldown Manager's layout, spells and Edit Mode settings stay the game's own.

@@ -13,8 +13,9 @@
 --
 -- Nothing secret is read or compared. Whether the debuff is up comes from the icon's
 -- wasSetFromAura flag, or, when that is secret, from the swipe color the game just
--- set (yellow = aura, black = cooldown). The timer bar is the client's own: an aura
--- container watches the spell's debuff on the target (and its buff on you) and fills
+-- set (yellow = aura, black = cooldown). The timer bar is the client's own: aura
+-- containers watch the spell's debuff on the target, your HoT or buff on a friendly
+-- target, and its buff on you (any rank you know), and the client fills
 -- the bar itself, since in combat the times are secret and an addon may not pass
 -- them on.
 
@@ -95,6 +96,39 @@ end
 -- and fills the StatusBar handed to it (SetDurationBar); the addon never touches the
 -- time. The button locks once initializeFrame returns, so it's dressed there.
 
+-- Every rank you know of each spell, by name, from the spellbook (it lists lower
+-- ranks too). An aura carries the id of the rank that was cast. Cleared when your
+-- spells change.
+local rankMap
+local function ranksByName()
+    if rankMap then return rankMap end
+    rankMap = {}
+    local SB = _G.C_SpellBook
+    if type(SB) ~= "table" or type(SB.GetNumSpellBookSkillLines) ~= "function" then return rankMap end
+    local E = type(Enum) == "table" and Enum or {}
+    local bank = E.SpellBookSpellBank and E.SpellBookSpellBank.Player or 0
+    local spellType = E.SpellBookItemType and E.SpellBookItemType.Spell or 1
+    local okN, lines = pcall(SB.GetNumSpellBookSkillLines)
+    for line = 1, (okN and plain(lines)) or 0 do
+        local okL, info = pcall(SB.GetSpellBookSkillLineInfo, line)
+        local offset = okL and type(info) == "table" and plain(info.itemIndexOffset)
+        local count = okL and type(info) == "table" and plain(info.numSpellBookItems)
+        if offset and count then
+            for i = 1, count do
+                local okI, item = pcall(SB.GetSpellBookItemInfo, offset + i, bank)
+                local id = okI and type(item) == "table" and plain(item.spellID)
+                local name = id and item.name
+                if id and item.itemType == spellType and type(name) == "string" and not secret(name) then
+                    local list = rankMap[name] or {}
+                    list[#list + 1] = id
+                    rankMap[name] = list
+                end
+            end
+        end
+    end
+    return rankMap
+end
+
 -- Every spell id the icon's cooldown stands for, as a set. nil if none can be read.
 local function spellIDsOf(item)
     local cid = plain(item.cooldownID)
@@ -111,19 +145,26 @@ local function spellIDsOf(item)
     if type(info.linkedSpellIDs) == "table" then
         for _, s in ipairs(info.linkedSpellIDs) do add(s) end
     end
-    -- Ranks: the rank you know of each spell, by name (its aura carries that id).
-    if C_Spell and C_Spell.GetSpellName and C_Spell.GetSpellInfo then
-        for i = 1, #list do
+    -- Ranks: every rank you know of each spell, by name, so a lower rank you cast
+    -- on purpose gets its bar too.
+    if C_Spell and C_Spell.GetSpellName then
+        local ranks = ranksByName()
+        local n = #list
+        for i = 1, n do
             local okN, name = pcall(C_Spell.GetSpellName, list[i])
             if okN and type(name) == "string" and not secret(name) then
-                local okI, si = pcall(C_Spell.GetSpellInfo, name)
-                if okI and type(si) == "table" then add(si.spellID) end
+                for _, s in ipairs(ranks[name] or {}) do add(s) end
+                if C_Spell.GetSpellInfo then
+                    local okI, si = pcall(C_Spell.GetSpellInfo, name)
+                    if okI and type(si) == "table" then add(si.spellID) end
+                end
             end
         end
     end
     if #list == 0 then return nil end
+    local base = list[1]   -- the cooldown's own spell, for the bar's colors
     table.sort(list)
-    return ids, cid .. ":" .. table.concat(list, ",")
+    return ids, cid .. ":" .. table.concat(list, ","), base
 end
 
 local function durationBarOptions()
@@ -142,9 +183,8 @@ end
 local function barColors(p)
     local name = db.barColor
     if name == "mix" then
-        local low
-        for s in pairs(p.ids or {}) do if not low or s < low then low = s end end
-        name = MIX[((low or 0) % #MIX) + 1]
+        -- By the cooldown's own spell, so learning a rank doesn't change it.
+        name = MIX[((p.base or 0) % #MIX) + 1]
     end
     local pal = BAR_PALETTES[name]
     if pal then return pal[1], pal[2] end
@@ -246,8 +286,9 @@ local function setupBar(item, p)
         if p.barKey then dropContainers(p); p.barKey = nil end
         return
     end
-    local ids, key = spellIDsOf(item)
+    local ids, key, base = spellIDsOf(item)
     if not ids then p.barErr = "no spell ids for this icon"; return end
+    p.base = base
     local size = p.barW .. "x" .. p.barH
     if p.barKey == key and p.barSize == size then return end
     if InCombatLockdown() then pending[item] = true; return end
@@ -261,7 +302,11 @@ local function setupBar(item, p)
         if okAll then p.barKey, p.ids = key, ids; return end
     end
     dropContainers(p)
+    -- Your debuffs on the target, your HoTs and buffs on a friendly target, and the
+    -- spell's buff on you. Targeting yourself, the last two show the same buff in
+    -- the same spot.
     buildContainer(p, "target", "HARMFUL|PLAYER", ids)
+    buildContainer(p, "target", "HELPFUL|PLAYER", ids)
     buildContainer(p, "player", "HELPFUL", ids)
     p.barKey, p.barSize, p.ids = key, size, ids
 end
@@ -648,6 +693,7 @@ f:SetScript("OnEvent", function(_, event, arg)
         for item in pairs(pending) do refresh(item) end
     elseif event == "SPELLS_CHANGED" then
         -- A new rank learned: its id joins the icon's spells.
+        rankMap = nil
         if not InCombatLockdown() then
             for item, p in pairs(skins) do
                 if p.barW then p.barKey = nil; setupBar(item, p) end
