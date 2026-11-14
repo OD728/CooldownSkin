@@ -11,6 +11,8 @@
   It covers your debuffs on an enemy, your HoTs and buffs on a friendly target, and
   buffs on yourself, whichever rank you cast.
 - Outlined timer numbers sized to the icon.
+- Tracked Bars skinned to match: square icon and bar in black edges, the game's art
+  gone, the bar in the same neon gradients with a spark, crisp text.
 
 The Cooldown Manager's layout, spells and Edit Mode settings stay the game's own.
 Nothing secret is read: the game client fills the swipe and the timer bar itself.

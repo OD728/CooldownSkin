@@ -1,5 +1,6 @@
 -- Cooldown Skin: restyles the game's Cooldown Manager icons (Essential, Utility and
--- Tracked Buff icons). The viewers, their layout and their spells stay the game's.
+-- Tracked Buff icons) and Tracked Bars. The viewers, their layout and their spells
+-- stay the game's.
 --
 --  * Square icons, cropped, inside a black border (2 px by default). The game's round
 --    mask and frame art are removed (art only by alpha).
@@ -21,7 +22,7 @@
 
 local ADDON = ...
 
-local VIEWERS = { "EssentialCooldownViewer", "UtilityCooldownViewer", "BuffIconCooldownViewer" }
+local VIEWERS = { "EssentialCooldownViewer", "UtilityCooldownViewer", "BuffIconCooldownViewer", "BuffBarCooldownViewer" }
 local SQUARE = "Interface\\Buttons\\WHITE8X8"
 local CROP = 0.08            -- trims the icon's own rounded edge
 local SCAN = 0.5             -- seconds between checks for new icons
@@ -352,7 +353,7 @@ end
 local function paint(item)
     local p = skins[item]
     local cd = item.Cooldown
-    if not p or type(cd) ~= "table" then return end
+    if not p or p.isBar or type(cd) ~= "table" then return end
     guard = true
     if isActive(item, p) then
         if db.highlight then
@@ -436,8 +437,130 @@ local function place(item)
     styleText(item)
 end
 
+-- Tracked Bars (BuffBarCooldownViewer) -----------------------------------
+-- The game's bar items: an icon frame (item.Icon holding the Icon texture) and a
+-- StatusBar the client fills itself (item.Bar, with Name and Duration texts). Kept
+-- in the game's own size and spot; only their look changes. No hooks on the bar's
+-- methods (hooking them broke the game's own calls in DaylightUI), so the look is
+-- put back on every scan in case the game reset it.
+
+local function isBarItem(item)
+    local bar = item.Bar
+    return type(bar) == "table" and bar.GetObjectType ~= nil and bar:GetObjectType() == "StatusBar"
+end
+
+local function barIconOf(item)
+    local host = item.Icon
+    local tex = type(host) == "table" and host.Icon
+    if type(tex) == "table" and tex.GetObjectType and tex:GetObjectType() == "Texture" then return tex, host end
+end
+
+-- The game's art on the bar item: every texture but the icon, the fill and ours.
+local function hideBarArt(item, p)
+    for _, f in ipairs({ item, p.host, item.Bar }) do
+        if type(f) == "table" and f.GetRegions then
+            for _, r in ipairs({ f:GetRegions() }) do
+                if r ~= p.icon and r ~= p.fill and not mine[r]
+                    and r.GetObjectType and r:GetObjectType() == "Texture" then
+                    r:SetAlpha(0)
+                end
+            end
+        end
+    end
+    -- The debuff-type outline (blue for Magic, purple for Curse), on the item or its icon.
+    for _, f in ipairs({ item, p.host }) do
+        local rim = type(f) == "table" and f.DebuffBorder
+        if type(rim) == "table" and rim.SetAlpha then rim:SetAlpha(0) end
+    end
+end
+
+local function dressBar(item)
+    local p = skins[item]
+    local bar = item.Bar
+    if not p or not bar then return end
+    -- The game reuses its bars for other spells: colors follow the current one.
+    local cid = plain(item.cooldownID)
+    if cid ~= p.cid then
+        p.cid = cid
+        p.base = select(3, spellIDsOf(item))
+    end
+    -- Fill: our flat texture in the bar's gradient. Put back if the game swapped it.
+    local fill = bar:GetStatusBarTexture()
+    if fill ~= p.fill or (fill and fill:GetTexture() ~= p.fillTex) then
+        pcall(bar.SetStatusBarTexture, bar, SQUARE)
+        fill = bar:GetStatusBarTexture()
+        p.fill, p.fillTex = fill, fill and fill:GetTexture()
+        if p.spark and fill then
+            p.spark:ClearAllPoints()
+            p.spark:SetPoint("CENTER", fill, "RIGHT", 0, 0)
+        end
+    end
+    local left, right = barColors(p)
+    if fill then gradient(fill, left, right) end
+    p.back:SetColorTexture(left[1] * 0.15, left[2] * 0.15, left[3] * 0.15, 0.95)
+    if p.spark then
+        p.spark:SetVertexColor(right[1], right[2], right[3], 1)
+        p.spark:SetShown(db.barGlow and fill ~= nil)
+    end
+    hideBarArt(item, p)
+    if not canLayout(item) then pending[item] = true; return end
+    local b = pixels(item, db.border)
+    -- Black edge around the bar, outside its fill.
+    p.edge:ClearAllPoints()
+    p.edge:SetPoint("TOPLEFT", bar, "TOPLEFT", -b, b)
+    p.edge:SetPoint("BOTTOMRIGHT", bar, "BOTTOMRIGHT", b, -b)
+    -- Square icon inside a black edge.
+    if p.icon and p.host then
+        p.icon:ClearAllPoints()
+        p.icon:SetPoint("TOPLEFT", p.host, "TOPLEFT", b, -b)
+        p.icon:SetPoint("BOTTOMRIGHT", p.host, "BOTTOMRIGHT", -b, b)
+        p.icon:SetTexCoord(CROP, 1 - CROP, CROP, 1 - CROP)
+    end
+    local h = bar:GetHeight()
+    if type(h) ~= "number" or secret(h) or h <= 0 then h = 18 end
+    local size = math.max(9, math.floor(h * 0.6 + 0.5))
+    styleFont(bar.Name, size)
+    styleFont(bar.Duration, size)
+    if p.spark then p.spark:SetSize(math.max(6, h * 0.8), h * 2.2) end
+end
+
+local function skinBar(item)
+    local p = { isBar = true }
+    skins[item] = p
+    local icon, host = barIconOf(item)
+    p.icon, p.host = icon, host
+    if icon and icon.GetNumMaskTextures then
+        for i = icon:GetNumMaskTextures(), 1, -1 do
+            local m = icon:GetMaskTexture(i)
+            if m then pcall(icon.RemoveMaskTexture, icon, m) end
+        end
+    end
+    if host and host.CreateTexture then
+        p.iconEdge = host:CreateTexture(nil, "BACKGROUND", nil, -8)
+        p.iconEdge:SetAllPoints(host)
+        p.iconEdge:SetColorTexture(0, 0, 0, 1)
+        mine[p.iconEdge] = true
+    end
+    local bar = item.Bar
+    p.edge = item:CreateTexture(nil, "BACKGROUND", nil, -8)
+    p.edge:SetColorTexture(0, 0, 0, 1)
+    mine[p.edge] = true
+    p.back = bar:CreateTexture(nil, "BACKGROUND", nil, -8)
+    p.back:SetAllPoints(bar)
+    mine[p.back] = true
+    p.spark = bar:CreateTexture(nil, "OVERLAY", nil, 7)
+    p.spark:SetTexture("Interface\\CastingBar\\UI-CastingBar-Spark")
+    p.spark:SetBlendMode("ADD")
+    mine[p.spark] = true
+    item:HookScript("OnSizeChanged", function() dressBar(item) end)
+    item:HookScript("OnShow", function() dressBar(item) end)
+    dressBar(item)
+end
+
 local function refresh(item)
-    if not skins[item] then return end
+    local p = skins[item]
+    if not p then return end
+    if p.isBar then return dressBar(item) end
     hideArt(item)
     place(item)
     paint(item)
@@ -464,8 +587,9 @@ end
 
 local function skin(item)
     if type(item) ~= "table" or skins[item] then return end
+    if isBarItem(item) then return skinBar(item) end
     local icon = item.Icon
-    -- Icon views only: the bar view's Icon is a frame, not a texture.
+    -- Icon views: the Icon is the texture itself.
     if type(icon) ~= "table" or not icon.GetObjectType or icon:GetObjectType() ~= "Texture" then return end
     local p = {}
     skins[item] = p
@@ -510,7 +634,11 @@ local function scan()
                 if skins[item] then
                     -- The game may have reused this icon for another spell.
                     local p = skins[item]
-                    if p.barW and not InCombatLockdown() then setupBar(item, p) end
+                    if p.isBar then
+                        if item:IsVisible() then dressBar(item) end
+                    elseif p.barW and not InCombatLockdown() then
+                        setupBar(item, p)
+                    end
                 else
                     skin(item)
                 end
