@@ -2,4 +2,5 @@ package-as: CooldownSkin
 
 ignore:
   - README.md
+  - art
   - CHANGELOG.md

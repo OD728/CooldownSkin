@@ -2,6 +2,8 @@
 
 **A cleaner look for the game's Cooldown Manager**, made for WoW: Forever.
 
+![Cooldown Skin in game: warlock DoT icons with neon timer bars above them, and the matching Tracked Bars below](art/screenshot.png)
+
 - Square, cropped icons in a black border for Essential, Utility and Tracked Buff icons.
 - While your debuff (or buff) is up, the yellow wash is gone: the icon stays bright and a
   dark swipe grows as it runs out. The border stays black, or takes your class color
