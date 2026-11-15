@@ -60,6 +60,19 @@ Everything in the window can also be set by command.
 Space between the icons is the game's own setting: in Edit Mode, select the
 cooldown row and change its Icon Padding.
 
+## Tested so far
+
+Version 1.0 was tested on a **Warlock** and a low-level **Priest** only:
+
+- Warlock DoTs.
+- Priest: Shadow Word: Pain, Power Word: Shield on yourself and on a party member,
+  and Renew.
+
+The look should be the same for every class, since it styles the Cooldown Manager's
+own icons. The timer bars for other classes' spells are untested. If a spell has no
+timer bar while its effect is up, run `/cskin debug` right then and open an issue
+with what it prints, your class and the spell.
+
 ## Changes
 
 See [CHANGELOG.md](CHANGELOG.md).
