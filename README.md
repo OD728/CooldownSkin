@@ -29,7 +29,7 @@ Copy this repository's files into a folder named `CooldownSkin` inside
 Type `/cskin`, click Cooldown Skin in the minimap addon menu, or go to
 Options > AddOns > Cooldown Skin. Every change applies at once.
 
-![The Cooldown Skin options window](art/options.webp)
+![The Cooldown Skin options window](art/options.png)
 
 ## Commands
 
