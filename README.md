@@ -1,5 +1,7 @@
 # Cooldown Skin
 
+<img src="art/curseforge-logo.png" alt="Cooldown Skin" width="160">
+
 **A cleaner look for the game's Cooldown Manager**, made for WoW: Forever.
 
 ![Cooldown Skin in game: warlock DoT icons with neon timer bars above them, and the matching Tracked Bars below](art/screenshot.png)

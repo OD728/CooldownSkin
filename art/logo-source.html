@@ -1,0 +1,177 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>html,body{margin:0;padding:0;background:#000;overflow:hidden}canvas{display:block}</style>
+</head><body>
+<canvas id="c" width="512" height="512"></canvas>
+<script>
+const c = document.getElementById('c');
+const g = c.getContext('2d');
+const W = 512;
+
+// Background: dark with a soft violet center, like the other logos.
+let bg = g.createRadialGradient(256, 236, 20, 256, 256, 380);
+bg.addColorStop(0, '#221a33');
+bg.addColorStop(0.55, '#110e19');
+bg.addColorStop(1, '#060509');
+g.fillStyle = bg;
+g.fillRect(0, 0, W, W);
+
+function rr(x, y, w, h, r) {
+  g.beginPath();
+  g.moveTo(x + r, y);
+  g.arcTo(x + w, y, x + w, y + h, r);
+  g.arcTo(x + w, y + h, x, y + h, r);
+  g.arcTo(x, y + h, x, y, r);
+  g.arcTo(x, y, x + w, y, r);
+  g.closePath();
+}
+
+// A glowing gradient bar in a black edge, filled to `frac`, with a spark at the end.
+function bar(x, y, w, h, frac, a, b, edge) {
+  g.save();
+  g.fillStyle = '#000';
+  rr(x - edge, y - edge, w + 2 * edge, h + 2 * edge, 3);
+  g.fill();
+  // empty part: dark tint of the first color
+  g.fillStyle = a.replace('rgb', 'rgba').replace(')', ',0.16)');
+  g.fillRect(x, y, w, h);
+  const fw = w * frac;
+  let lg = g.createLinearGradient(x, 0, x + fw, 0);
+  lg.addColorStop(0, a);
+  lg.addColorStop(1, b);
+  g.shadowColor = b;
+  g.shadowBlur = 18;
+  g.fillStyle = lg;
+  g.fillRect(x, y, fw, h);
+  g.shadowBlur = 0;
+  // sheen on top
+  let sh = g.createLinearGradient(0, y, 0, y + h);
+  sh.addColorStop(0, 'rgba(255,255,255,0.28)');
+  sh.addColorStop(0.5, 'rgba(255,255,255,0.0)');
+  g.fillStyle = sh;
+  g.fillRect(x, y, fw, h);
+  // spark
+  const sx = x + fw, sy = y + h / 2;
+  const k = Math.min(h, 16);
+  let sp = g.createRadialGradient(sx, sy, 0, sx, sy, k * 1.6);
+  sp.addColorStop(0, 'rgba(255,255,255,0.95)');
+  sp.addColorStop(0.35, b.replace('rgb', 'rgba').replace(')', ',0.7)'));
+  sp.addColorStop(1, 'rgba(0,0,0,0)');
+  g.globalCompositeOperation = 'lighter';
+  g.fillStyle = sp;
+  g.beginPath();
+  g.ellipse(sx, sy, k * 0.7, Math.max(h * 0.75, k * 1.6), 0, 0, Math.PI * 2);
+  g.fill();
+  g.globalCompositeOperation = 'source-over';
+  g.restore();
+}
+
+// Glyphs drawn inside the tiles (our own shapes, not game icons).
+function swirl(cx, cy, s, col) {
+  g.save();
+  g.strokeStyle = col; g.lineWidth = s * 0.09; g.lineCap = 'round';
+  g.shadowColor = col; g.shadowBlur = 12;
+  g.beginPath();
+  for (let t = 0; t < Math.PI * 5; t += 0.05) {
+    const r = s * 0.04 + t * s * 0.024;
+    const px = cx + Math.cos(t) * r, py = cy + Math.sin(t) * r;
+    t === 0 ? g.moveTo(px, py) : g.lineTo(px, py);
+  }
+  g.stroke();
+  g.restore();
+}
+function bolt(cx, cy, s, col) {
+  g.save();
+  g.fillStyle = col; g.shadowColor = col; g.shadowBlur = 14;
+  g.beginPath();
+  const p = [[0.10, -0.42], [-0.22, 0.04], [-0.02, 0.04], [-0.12, 0.42], [0.24, -0.06], [0.03, -0.06], [0.14, -0.42]];
+  p.forEach(([u, v], i) => { const px = cx + u * s, py = cy + v * s; i ? g.lineTo(px, py) : g.moveTo(px, py); });
+  g.closePath(); g.fill();
+  g.restore();
+}
+function moon(cx, cy, s, col) {
+  g.save();
+  g.fillStyle = col; g.shadowColor = col; g.shadowBlur = 14;
+  g.beginPath();
+  g.arc(cx, cy, s * 0.34, 0, Math.PI * 2);
+  g.arc(cx + s * 0.15, cy - s * 0.1, s * 0.29, 0, Math.PI * 2, true);
+  g.fill('evenodd');
+  g.restore();
+}
+
+// A square cooldown tile: black border, colored face, glyph, dark swipe, number.
+function tile(x, y, s, c1, c2, glyph, gcol, swipe, num) {
+  g.save();
+  g.fillStyle = '#000';
+  rr(x - 7, y - 7, s + 14, s + 14, 5);
+  g.fill();
+  let fg = g.createRadialGradient(x + s * 0.4, y + s * 0.35, 4, x + s / 2, y + s / 2, s * 0.8);
+  fg.addColorStop(0, c1);
+  fg.addColorStop(1, c2);
+  g.fillStyle = fg;
+  g.fillRect(x, y, s, s);
+  glyph(x + s / 2, y + s / 2, s, gcol);
+  // dark swipe: the part of the debuff that has run out
+  g.save();
+  g.beginPath(); g.rect(x, y, s, s); g.clip();
+  g.fillStyle = 'rgba(0,0,0,0.6)';
+  g.beginPath();
+  g.moveTo(x + s / 2, y + s / 2);
+  g.arc(x + s / 2, y + s / 2, s, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * swipe);
+  g.closePath(); g.fill();
+  g.restore();
+  // inner shade
+  let ish = g.createLinearGradient(0, y, 0, y + s);
+  ish.addColorStop(0, 'rgba(255,255,255,0.10)');
+  ish.addColorStop(1, 'rgba(0,0,0,0.25)');
+  g.fillStyle = ish;
+  g.fillRect(x, y, s, s);
+  // number
+  g.font = 'bold ' + Math.round(s * 0.44) + 'px "Segoe UI", Arial, sans-serif';
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.lineJoin = 'round';
+  g.lineWidth = s * 0.075; g.strokeStyle = '#000';
+  g.strokeText(num, x + s / 2, y + s / 2 + 3);
+  g.fillStyle = '#fff';
+  g.fillText(num, x + s / 2, y + s / 2 + 3);
+  g.restore();
+}
+
+const S = 112, GAP = 30;
+const X0 = (W - (3 * S + 2 * GAP)) / 2;
+const TY = 164;
+
+const tiles = [
+  { c1: '#5fd35a', c2: '#123d14', glyph: swirl, gcol: 'rgba(220,255,200,0.9)', swipe: 0.30, num: '28',
+    a: 'rgb(252,237,10)', b: 'rgb(5,217,232)', frac: 0.70 },       // Cyberpunk
+  { c1: '#f08a4b', c2: '#4a1608', glyph: bolt, gcol: 'rgba(255,240,200,0.95)', swipe: 0.55, num: '19',
+    a: 'rgb(203,166,247)', b: 'rgb(245,194,231)', frac: 0.45 },     // Catppuccin
+  { c1: '#b46cf0', c2: '#2a0c46', glyph: moon, gcol: 'rgba(240,225,255,0.95)', swipe: 0.15, num: '14',
+    a: 'rgb(0,255,255)', b: 'rgb(255,0,255)', frac: 0.85 },         // Neon
+];
+
+tiles.forEach((t, i) => {
+  const x = X0 + i * (S + GAP);
+  bar(x, TY - 7 - 12 - 14, S, 14, t.frac, t.a, t.b, 4);
+  tile(x, TY, S, t.c1, t.c2, t.glyph, t.gcol, t.swipe, t.num);
+});
+
+// A skinned Tracked Bar underneath.
+const BY = TY + S + 62, BH = 46;
+const IX = X0;
+g.fillStyle = '#000';
+rr(IX - 5, BY - 5, BH + 10, BH + 10, 4); g.fill();
+let ig = g.createRadialGradient(IX + BH * 0.4, BY + BH * 0.35, 3, IX + BH / 2, BY + BH / 2, BH * 0.8);
+ig.addColorStop(0, '#3fb6e8'); ig.addColorStop(1, '#0a2a46');
+g.fillStyle = ig; g.fillRect(IX, BY, BH, BH);
+bolt(IX + BH / 2, BY + BH / 2, BH, 'rgba(225,245,255,0.95)');
+const BX = IX + BH + 18, BW = X0 + 3 * S + 2 * GAP - BX;
+bar(BX, BY + 4, BW, BH - 8, 0.62, 'rgb(166,0,255)', 'rgb(0,140,255)', 5);
+g.font = 'bold 26px "Segoe UI", Arial, sans-serif';
+g.textAlign = 'right'; g.textBaseline = 'middle';
+g.lineWidth = 5; g.strokeStyle = '#000'; g.lineJoin = 'round';
+g.strokeText('12', BX + BW - 12, BY + BH / 2 + 1);
+g.fillStyle = '#fff';
+g.fillText('12', BX + BW - 12, BY + BH / 2 + 1);
+</script>
+</body></html>
