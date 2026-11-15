@@ -182,11 +182,12 @@ local function durationBarOptions()
 end
 
 -- The bar's two colors (left, right) for this icon.
-local function barColors(p)
-    local name = db.barColor
+-- A preset's two colors (left, right) at the chosen brightness. base picks the
+-- preset for "mix".
+local function paletteColors(name, base)
     if name == "mix" then
         -- By the cooldown's own spell, so learning a rank doesn't change it.
-        name = MIX[((p.base or 0) % #MIX) + 1]
+        name = MIX[((base or 0) % #MIX) + 1]
     end
     local left, right
     local pal = BAR_PALETTES[name]
@@ -202,6 +203,8 @@ local function barColors(p)
     local k = db.barBright or 1
     return { left[1] * k, left[2] * k, left[3] * k }, { right[1] * k, right[2] * k, right[3] * k }
 end
+
+local function barColors(p) return paletteColors(db.barColor, p.base) end
 
 local function gradient(tex, a, b)
     if CreateColor and tex.SetGradient then
@@ -685,6 +688,304 @@ local function rebuildBars()
     end
 end
 
+-- Bar changes made in combat wait for it to end (PLAYER_REGEN_ENABLED), since the
+-- client's bar buttons can only be made out of combat.
+local barsWaiting = false
+local function applyBars()
+    if InCombatLockdown() then
+        if not barsWaiting then say("bar changes show after combat") end
+        barsWaiting = true
+        return
+    end
+    barsWaiting = false
+    rebuildBars()
+end
+
+local function resetAll()
+    CooldownSkinDB = CopyTable(DEFAULTS)
+    db = CooldownSkinDB
+    db.v = 2
+    applyBars()
+    refreshAll()
+end
+
+-- Options panel ------------------------------------------------------------
+-- A dark, movable panel like Warlock Flyout's, in neutral grays to sit with mUI.
+-- /cskin, the minimap addon menu and Options > AddOns open it. Every change applies
+-- at once; the slash commands still work.
+
+local UI_FILL = { 0.05, 0.05, 0.06 }
+local UI_EDGE = { 0.30, 0.30, 0.33 }
+local UI_ACCENT = { 0.80, 0.64, 1.00 }
+local UI_W, UI_PAD = 340, 16
+local UI_INNER = UI_W - 2 * UI_PAD
+
+local function uiEdges(f, fill, alpha)
+    local bg = f:CreateTexture(nil, "BACKGROUND")
+    bg:SetAllPoints()
+    bg:SetColorTexture(fill[1], fill[2], fill[3], alpha or 1)
+    for _, e in ipairs({ { "TOPLEFT", "TOPRIGHT" }, { "BOTTOMLEFT", "BOTTOMRIGHT" },
+                         { "TOPLEFT", "BOTTOMLEFT", true }, { "TOPRIGHT", "BOTTOMRIGHT", true } }) do
+        local t = f:CreateTexture(nil, "BORDER")
+        t:SetPoint(e[1]); t:SetPoint(e[2])
+        if e[3] then t:SetWidth(1) else t:SetHeight(1) end
+        t:SetColorTexture(UI_EDGE[1], UI_EDGE[2], UI_EDGE[3], 1)
+    end
+end
+
+local function uiButton(parent, text, w)
+    local b = CreateFrame("Button", nil, parent)
+    b:SetSize(w or UI_INNER, 22)
+    uiEdges(b, { 0.12, 0.12, 0.13 })
+    local hl = b:CreateTexture(nil, "HIGHLIGHT")
+    hl:SetAllPoints()
+    hl:SetColorTexture(UI_ACCENT[1], UI_ACCENT[2], UI_ACCENT[3], 0.15)
+    b.label = b:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    b.label:SetPoint("LEFT", 6, 0)
+    b.label:SetPoint("RIGHT", -6, 0)
+    b.label:SetWordWrap(false)
+    b.label:SetText(text)
+    return b
+end
+
+local function pct(v) return string.format("%d%%", math.floor(v * 100 + 0.5)) end
+local function px(v) return string.format("%d px", v) end
+
+local BAR_SPOTS = { "top", "bottom", "off" }
+local BAR_SPOT_NAMES = { top = "Above the icon", bottom = "Below the icon", off = "Off" }
+local COLOR_LIST = { "mix", "class", "neon", "toxic", "sunset", "void", "fel", "ice" }
+local COLOR_NAMES = { mix = "Mix (each spell)", class = "Class color", neon = "Neon", toxic = "Toxic",
+    sunset = "Sunset", void = "Void", fel = "Fel", ice = "Ice" }
+
+local panel
+local function buildPanel()
+    local f = CreateFrame("Frame", "CooldownSkinOptions", UIParent)
+    f:SetSize(UI_W, 400)
+    f:SetPoint("CENTER", 0, 60)
+    f:SetFrameStrata("DIALOG")
+    f:EnableMouse(true)
+    f:SetMovable(true)
+    f:SetClampedToScreen(true)
+    f:RegisterForDrag("LeftButton")
+    f:SetScript("OnDragStart", f.StartMoving)
+    f:SetScript("OnDragStop", f.StopMovingOrSizing)
+    uiEdges(f, UI_FILL, 0.95)
+
+    local close = CreateFrame("Button", nil, f)
+    close:SetSize(20, 20)
+    close:SetPoint("TOPRIGHT", -8, -8)
+    local x = close:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    x:SetPoint("CENTER")
+    x:SetText("\195\151")
+    x:SetTextColor(UI_ACCENT[1], UI_ACCENT[2], UI_ACCENT[3])
+    close:SetScript("OnEnter", function() x:SetTextColor(1, 1, 1) end)
+    close:SetScript("OnLeave", function() x:SetTextColor(UI_ACCENT[1], UI_ACCENT[2], UI_ACCENT[3]) end)
+    close:SetScript("OnClick", function() f:Hide() end)
+
+    local logo = f:CreateTexture(nil, "ARTWORK")
+    logo:SetSize(32, 32)
+    logo:SetPoint("TOPLEFT", UI_PAD, -UI_PAD)
+    logo:SetTexture("Interface\\Icons\\Spell_Nature_TimeStop")
+    logo:SetTexCoord(CROP, 1 - CROP, CROP, 1 - CROP)
+    local title = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    title:SetPoint("TOPLEFT", logo, "TOPRIGHT", 10, -1)
+    title:SetText("Cooldown Skin")
+    title:SetTextColor(UI_ACCENT[1], UI_ACCENT[2], UI_ACCENT[3])
+    local sub = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    sub:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -3)
+    sub:SetText("Changes apply at once. Drag to move, Esc to close.")
+
+    local widgets = {}
+    local function refreshWidgets() for _, w in ipairs(widgets) do w.Refresh() end end
+    f.Refresh = refreshWidgets
+
+    local y = -(UI_PAD + 32 + 10)
+    local function head(text)
+        y = y - 6
+        local fs = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        fs:SetPoint("TOPLEFT", UI_PAD, y)
+        fs:SetText(text)
+        local rule = f:CreateTexture(nil, "BORDER")
+        rule:SetHeight(1)
+        rule:SetColorTexture(UI_EDGE[1], UI_EDGE[2], UI_EDGE[3], 0.8)
+        rule:SetPoint("LEFT", fs, "RIGHT", 8, 0)
+        rule:SetPoint("RIGHT", f, "RIGHT", -UI_PAD, 0)
+        y = y - 22
+    end
+    local function row()
+        local r = CreateFrame("Frame", nil, f)
+        r:SetSize(UI_INNER, 24)
+        r:SetPoint("TOPLEFT", UI_PAD, y)
+        y = y - 28
+        return r
+    end
+    local function label(r, text)
+        local fs = r:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+        fs:SetPoint("LEFT")
+        fs:SetText(text)
+    end
+
+    local function check(text, get, set)
+        local r = row()
+        local c = CreateFrame("CheckButton", nil, r, "UICheckButtonTemplate")
+        c:SetSize(24, 24)
+        c:SetPoint("LEFT", -3, 0)
+        local fs = r:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+        fs:SetPoint("LEFT", c, "RIGHT", 4, 0)
+        fs:SetText(text)
+        c:SetScript("OnClick", function(self) set(self:GetChecked() and true or false); refreshWidgets() end)
+        widgets[#widgets + 1] = { Refresh = function() c:SetChecked(get() and true or false) end }
+    end
+
+    -- label ......... [-] value [+]
+    local function stepper(text, get, set, step, lo, hi, fmt)
+        local r = row()
+        label(r, text)
+        local plus = uiButton(r, "+", 24)
+        plus:SetPoint("RIGHT")
+        local value = r:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        value:SetWidth(52)
+        value:SetJustifyH("CENTER")
+        value:SetPoint("RIGHT", plus, "LEFT", -4, 0)
+        local minus = uiButton(r, "-", 24)
+        minus:SetPoint("RIGHT", value, "LEFT", -4, 0)
+        plus.label:SetJustifyH("CENTER")
+        minus.label:SetJustifyH("CENTER")
+        local function bump(d)
+            local v = math.floor((get() + d) / step + 0.5) * step
+            v = tonumber(string.format("%.2f", math.max(lo, math.min(hi, v))))
+            set(v)
+            refreshWidgets()
+        end
+        minus:SetScript("OnClick", function() bump(-step) end)
+        plus:SetScript("OnClick", function() bump(step) end)
+        widgets[#widgets + 1] = { Refresh = function() value:SetText(fmt(get())) end }
+    end
+
+    -- label ......... [ choice ]  (left-click next, right-click back)
+    local function cycle(text, list, names, get, set)
+        local r = row()
+        label(r, text)
+        local b = uiButton(r, "", 150)
+        b:SetPoint("RIGHT")
+        b.label:SetJustifyH("CENTER")
+        b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+        b:SetScript("OnClick", function(_, button)
+            local i = 1
+            for k, v in ipairs(list) do if v == get() then i = k end end
+            i = (button == "RightButton") and ((i - 2) % #list + 1) or (i % #list + 1)
+            set(list[i])
+            refreshWidgets()
+        end)
+        widgets[#widgets + 1] = { Refresh = function() b.label:SetText(names[get()] or tostring(get())) end }
+    end
+
+    head("Icons")
+    stepper("Border", function() return db.border end,
+        function(v) db.border = v; refreshAll() end, 1, 0, 4, px)
+    stepper("Timer text size", function() return db.textScale end,
+        function(v) db.textScale = v; refreshAll() end, 0.05, 0.2, 0.8, pct)
+    stepper("Swipe darkness while up", function() return db.activeSwipe end,
+        function(v) db.activeSwipe = v; refreshAll() end, 0.05, 0, 1, pct)
+    check("Class-colored border while the debuff is up", function() return db.highlight end,
+        function(v) db.highlight = v; refreshAll() end)
+    check("Swipe grows as the debuff runs out", function() return db.reverse end,
+        function(v) db.reverse = v; refreshAll() end)
+
+    head("Timer bars")
+    cycle("Small bar", BAR_SPOTS, BAR_SPOT_NAMES, function() return db.bar end,
+        function(v) db.bar = v; refreshAll() end)
+    stepper("Small bar height", function() return db.barHeight end,
+        function(v) db.barHeight = v; refreshAll() end, 1, 1, 12, px)
+    cycle("Colors", COLOR_LIST, COLOR_NAMES, function() return db.barColor end,
+        function(v) db.barColor = v; applyBars() end)
+
+    -- Preview of the chosen colors: one strip, or one per preset for Mix.
+    local strip = CreateFrame("Frame", nil, f)
+    strip:SetSize(UI_INNER, 8)
+    strip:SetPoint("TOPLEFT", UI_PAD, y + 2)
+    y = y - 16
+    local segs = {}
+    for i = 1, #MIX do
+        local t = strip:CreateTexture(nil, "ARTWORK")
+        t:SetTexture(SQUARE)
+        segs[i] = t
+    end
+    widgets[#widgets + 1] = { Refresh = function()
+        local n = (db.barColor == "mix") and #MIX or 1
+        local w = (UI_INNER - (n - 1) * 3) / n
+        for i, t in ipairs(segs) do
+            if i <= n then
+                t:ClearAllPoints()
+                t:SetPoint("TOPLEFT", strip, "TOPLEFT", (i - 1) * (w + 3), 0)
+                t:SetSize(w, 8)
+                local a, b = paletteColors(db.barColor, i - 1)   -- Mix: preset i
+                gradient(t, a, b)
+                t:Show()
+            else
+                t:Hide()
+            end
+        end
+    end }
+
+    stepper("Brightness", function() return db.barBright end,
+        function(v) db.barBright = v; applyBars() end, 0.05, 0.3, 1, pct)
+    check("Spark at the bar's end", function() return db.barGlow end,
+        function(v) db.barGlow = v; applyBars() end)
+
+    local note = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    note:SetPoint("TOPLEFT", UI_PAD, y - 2)
+    note:SetWidth(UI_INNER)
+    note:SetJustifyH("LEFT")
+    note:SetWordWrap(true)
+    note:SetText("Colors, brightness and spark apply to the small bars and the Tracked Bars. Bar changes made in combat show after it.")
+    y = y - 36
+
+    local reset = uiButton(f, "Reset to defaults")
+    reset.label:SetJustifyH("CENTER")
+    reset:SetPoint("TOPLEFT", UI_PAD, y)
+    reset:SetScript("OnClick", function() resetAll(); refreshWidgets() end)
+    y = y - 22
+
+    f:SetHeight(-y + UI_PAD)
+    f:SetScript("OnShow", refreshWidgets)
+    if UISpecialFrames then table.insert(UISpecialFrames, f:GetName()) end
+    f:Hide()
+    return f
+end
+
+local function togglePanel()
+    panel = panel or buildPanel()
+    panel:SetShown(not panel:IsShown())
+end
+
+function CooldownSkin_OnCompartmentClick() togglePanel() end
+
+-- An entry in Options > AddOns that opens the panel.
+local function registerSettings()
+    if not (Settings and Settings.RegisterCanvasLayoutCategory and Settings.RegisterAddOnCategory) then return end
+    local c = CreateFrame("Frame")
+    local t = c:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    t:SetPoint("TOPLEFT", 16, -16)
+    t:SetText("Cooldown Skin")
+    local s = c:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    s:SetPoint("TOPLEFT", t, "BOTTOMLEFT", 0, -8)
+    s:SetText("The options open in their own window (also with /cskin).")
+    local b = CreateFrame("Button", nil, c, "UIPanelButtonTemplate")
+    b:SetSize(200, 24)
+    b:SetPoint("TOPLEFT", s, "BOTTOMLEFT", 0, -12)
+    b:SetText("Open Cooldown Skin")
+    b:SetScript("OnClick", function()
+        if SettingsPanel and SettingsPanel:IsShown() and HideUIPanel then HideUIPanel(SettingsPanel) end
+        panel = panel or buildPanel()
+        panel:Show()
+    end)
+    pcall(function()
+        local cat = Settings.RegisterCanvasLayoutCategory(c, "Cooldown Skin")
+        Settings.RegisterAddOnCategory(cat)
+    end)
+end
+
 SLASH_COOLDOWNSKIN1 = "/cskin"
 SLASH_COOLDOWNSKIN2 = "/cooldownskin"
 SlashCmdList.COOLDOWNSKIN = function(msg)
@@ -695,15 +996,13 @@ SlashCmdList.COOLDOWNSKIN = function(msg)
     elseif cmd == "color" and a == "class" then
         db.activeColor = "class"
         say("bar and highlight: class color")
-        if not InCombatLockdown() then rebuildBars() end
-        return refreshAll()
+        applyBars()
     elseif cmd == "color" then
         local col = parseColor(a, b, c)
         if not col then return say("usage: /cskin color class  or  /cskin color 150 80 230") end
         db.activeColor = col
         say("bar and highlight: custom color")
-        if not InCombatLockdown() then rebuildBars() end
-        return refreshAll()
+        applyBars()
     elseif cmd == "reverse" then
         db.reverse = not db.reverse
         say(db.reverse and "the swipe grows as the debuff runs out" or "the swipe shrinks as the debuff runs out")
@@ -722,9 +1021,7 @@ SlashCmdList.COOLDOWNSKIN = function(msg)
     elseif cmd == "barcolor" and (a == "mix" or a == "class" or BAR_PALETTES[a]) then
         db.barColor = a
         say("timer bar colors: " .. a)
-        if InCombatLockdown() then return say("shows after combat") end
-        rebuildBars()
-        return
+        applyBars()
     elseif cmd == "barcolor" then
         local names = {}
         for k in pairs(BAR_PALETTES) do names[#names + 1] = k end
@@ -733,15 +1030,11 @@ SlashCmdList.COOLDOWNSKIN = function(msg)
     elseif cmd == "barbright" and tonumber(a) then
         db.barBright = math.max(0.3, math.min(1, tonumber(a)))
         say(string.format("bar brightness: %d%%", math.floor(db.barBright * 100 + 0.5)))
-        if InCombatLockdown() then return say("shows after combat") end
-        rebuildBars()
-        return
+        applyBars()
     elseif cmd == "barglow" then
         db.barGlow = not db.barGlow
         say(db.barGlow and "bar spark: on" or "bar spark: off")
-        if InCombatLockdown() then return say("shows after combat") end
-        rebuildBars()
-        return
+        applyBars()
     elseif cmd == "barheight" and tonumber(a) then
         db.barHeight = math.max(1, math.min(12, math.floor(tonumber(a))))
         say("timer bar height: " .. db.barHeight .. " px")
@@ -768,12 +1061,12 @@ SlashCmdList.COOLDOWNSKIN = function(msg)
         say(string.format("%d icons shown, in combat=%s", n, tostring(InCombatLockdown())))
         return
     elseif cmd == "reset" then
-        CooldownSkinDB = CopyTable(DEFAULTS)
-        db = CooldownSkinDB
-        db.v = 2
+        resetAll()
         say("settings reset")
-        if not InCombatLockdown() then rebuildBars() end
+    elseif cmd == nil or cmd == "" or cmd == "options" or cmd == "config" then
+        return togglePanel()
     else
+        say("/cskin  - open the options")
         say("/cskin highlight  - color the border while your debuff is up (on/off)")
         say("/cskin color class | color r g b  - color of the bar and highlight")
         say("/cskin reverse  - flip which way the debuff swipe runs")
@@ -790,6 +1083,7 @@ SlashCmdList.COOLDOWNSKIN = function(msg)
         return
     end
     refreshAll()
+    if panel and panel:IsShown() then panel.Refresh() end
 end
 
 -- Startup ------------------------------------------------------------------
@@ -824,6 +1118,7 @@ f:SetScript("OnEvent", function(_, event, arg)
                 if db[k] == nil then db[k] = type(v) == "table" and CopyTable(v) or v end
             end
             C_Timer.NewTicker(SCAN, scan)
+            registerSettings()
         end
         if arg == ADDON or arg == "Blizzard_CooldownViewer" then
             if db then scan() end
@@ -835,6 +1130,7 @@ f:SetScript("OnEvent", function(_, event, arg)
         refreshAll()
     elseif event == "PLAYER_REGEN_ENABLED" then
         for item in pairs(pending) do refresh(item) end
+        if barsWaiting then applyBars() end
     elseif event == "SPELLS_CHANGED" then
         -- A new rank learned: its id joins the icon's spells.
         rankMap = nil

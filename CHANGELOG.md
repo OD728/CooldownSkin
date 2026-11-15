@@ -9,4 +9,4 @@ First release.
 - A thin timer bar above the icon while the debuff is up, in neon gradients inside a thin black edge, with a spark at its end (`/cskin barcolor`, `/cskin barglow`). Toned down to 70% brightness by default (`/cskin barbright`). Covers your debuffs on an enemy, your HoTs and buffs on a friendly target, and buffs on yourself, whichever rank you cast.
 - Outlined timer numbers sized to the icon.
 - Tracked Bars skinned to match: square icon and bar in black edges, the bar in the same neon gradients with a spark, crisp text.
-- Options with `/cskin`.
+- An options window: `/cskin`, the minimap addon menu, or Options > AddOns > Cooldown Skin. The commands still work (`/cskin help`).

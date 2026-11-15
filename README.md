@@ -24,11 +24,21 @@ Nothing secret is read: the game client fills the swipe and the timer bar itself
 Copy this repository's files into a folder named `CooldownSkin` inside
 `World of Warcraft\_forever_\Interface\AddOns\`.
 
+## Options
+
+Type `/cskin`, click Cooldown Skin in the minimap addon menu, or go to
+Options > AddOns > Cooldown Skin. Every change applies at once.
+
+![The Cooldown Skin options window](art/options.webp)
+
 ## Commands
+
+Everything in the window can also be set by command.
 
 | Command | What it does |
 | --- | --- |
-| `/cskin` | List the options |
+| `/cskin` | Open the options window |
+| `/cskin help` | List the commands |
 | `/cskin highlight` | Color the border while the debuff is up (on/off) |
 | `/cskin color class` | Bar and highlight in your class color |
 | `/cskin color 150 80 230` | A color of your own instead |
