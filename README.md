@@ -8,13 +8,14 @@
 - While your debuff (or buff) is up, the yellow wash is gone: the icon stays bright and a
   dark swipe grows as it runs out. The border stays black, or takes your class color
   with `/cskin highlight`.
-- A thin timer bar above the icon while the debuff is up, in neon gradients with a
-  spark at its end. The game client fills it itself, so it keeps running in combat.
+- A thin timer bar above the icon while the debuff is up, in gradient colors with a
+  spark at its end: Neon, Catppuccin or Cyberpunk sets that give each spell its own
+  pair, your class color, or a single preset. The game client fills it itself, so it keeps running in combat.
   It covers your debuffs on an enemy, your HoTs and buffs on a friendly target, and
   buffs on yourself, whichever rank you cast.
 - Outlined timer numbers sized to the icon.
 - Tracked Bars skinned to match: square icon and bar in black edges, the game's art
-  gone, the bar in the same neon gradients with a spark, crisp text.
+  gone, the bar in the same gradient colors with a spark, crisp text.
 
 The Cooldown Manager's layout, spells and Edit Mode settings stay the game's own.
 Nothing secret is read: the game client fills the swipe and the timer bar itself.
@@ -45,7 +46,7 @@ Everything in the window can also be set by command.
 | `/cskin border 0-4` | Border thickness in pixels |
 | `/cskin bar top \| bottom \| off` | Where the timer bar goes, or none |
 | `/cskin barheight 1-12` | Timer bar height in pixels |
-| `/cskin barcolor <name>` | Bar colors: `mix` (each spell its own, default), `class`, `neon`, `toxic`, `sunset`, `void`, `fel`, `ice` |
+| `/cskin barcolor <name>` | Bar colors. Each spell its own pair: `mix` (neon, default), `catppuccin`, `cyberpunk`. One for all: `class`, `neon`, `toxic`, `sunset`, `void`, `fel`, `ice` |
 | `/cskin barglow` | Spark at the bar's end (on/off) |
 | `/cskin barbright 0.3-1` | Bar color brightness (default 0.7, 1 = full neon) |
 | `/cskin reverse` | Flip which way the debuff swipe runs |

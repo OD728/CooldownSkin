@@ -39,7 +39,7 @@ local DEFAULTS = {
     hideBling = true,        -- no flash when a cooldown finishes
     bar = "top",             -- timer bar while the debuff/buff is up: "top", "bottom" or "off"
     barHeight = 4,           -- its height in screen pixels (plus a 1 px border)
-    barColor = "mix",        -- a BAR_PALETTES name, "class", or "mix" (each spell its own)
+    barColor = "mix",        -- a MIXES set (each spell its own pair), a BAR_PALETTES name, or "class"
     barGlow = true,          -- spark at the bar's moving end
     barBright = 0.7,         -- brightness of the bar colors (1 = the full neon)
 }
@@ -52,8 +52,29 @@ local BAR_PALETTES = {
     void   = { { 0.65, 0.00, 1.00 }, { 0.00, 0.55, 1.00 } },   -- violet to electric blue
     fel    = { { 0.15, 1.00, 0.10 }, { 0.85, 1.00, 0.00 } },   -- fel green to yellow
     ice    = { { 0.70, 0.95, 1.00 }, { 0.15, 0.40, 1.00 } },   -- frost to deep blue
+
+    -- Catppuccin Mocha pastels.
+    ctp_mauve = { { 0.80, 0.65, 0.97 }, { 0.96, 0.76, 0.91 } }, -- mauve to pink
+    ctp_peach = { { 0.98, 0.70, 0.53 }, { 0.95, 0.55, 0.66 } }, -- peach to red
+    ctp_teal  = { { 0.58, 0.89, 0.84 }, { 0.54, 0.86, 0.92 } }, -- teal to sky
+    ctp_blue  = { { 0.54, 0.71, 0.98 }, { 0.71, 0.75, 1.00 } }, -- blue to lavender
+    ctp_green = { { 0.65, 0.89, 0.63 }, { 0.98, 0.89, 0.69 } }, -- green to yellow
+    ctp_rose  = { { 0.95, 0.80, 0.80 }, { 0.92, 0.63, 0.67 } }, -- flamingo to maroon
+
+    -- Cyberpunk neons.
+    cyber_yellow = { { 0.99, 0.93, 0.04 }, { 0.02, 0.85, 0.91 } }, -- yellow to cyan
+    cyber_pink   = { { 1.00, 0.16, 0.43 }, { 0.48, 0.02, 0.92 } }, -- hot pink to violet
+    cyber_cyan   = { { 0.02, 0.85, 0.91 }, { 0.18, 0.42, 1.00 } }, -- cyan to electric blue
+    cyber_red    = { { 1.00, 0.00, 0.24 }, { 1.00, 0.00, 0.63 } }, -- red to magenta
+    cyber_acid   = { { 0.22, 1.00, 0.08 }, { 0.00, 0.94, 1.00 } }, -- acid green to cyan
+    cyber_purple = { { 0.69, 0.15, 1.00 }, { 1.00, 0.16, 0.43 } }, -- purple to hot pink
 }
-local MIX = { "neon", "toxic", "sunset", "void", "fel", "ice" }
+-- Sets where each spell gets its own pair (picked by the spell's id).
+local MIXES = {
+    mix        = { "neon", "toxic", "sunset", "void", "fel", "ice" },
+    catppuccin = { "ctp_mauve", "ctp_peach", "ctp_teal", "ctp_blue", "ctp_green", "ctp_rose" },
+    cyberpunk  = { "cyber_yellow", "cyber_pink", "cyber_cyan", "cyber_red", "cyber_acid", "cyber_purple" },
+}
 
 local db
 local skins = setmetatable({}, { __mode = "k" })   -- item -> parts and state
@@ -183,11 +204,12 @@ end
 
 -- The bar's two colors (left, right) for this icon.
 -- A preset's two colors (left, right) at the chosen brightness. base picks the
--- preset for "mix".
+-- pair in a mix set.
 local function paletteColors(name, base)
-    if name == "mix" then
+    local set = MIXES[name]
+    if set then
         -- By the cooldown's own spell, so learning a rank doesn't change it.
-        name = MIX[((base or 0) % #MIX) + 1]
+        name = set[((base or 0) % #set) + 1]
     end
     local left, right
     local pal = BAR_PALETTES[name]
@@ -753,8 +775,9 @@ local function px(v) return string.format("%d px", v) end
 
 local BAR_SPOTS = { "top", "bottom", "off" }
 local BAR_SPOT_NAMES = { top = "Above the icon", bottom = "Below the icon", off = "Off" }
-local COLOR_LIST = { "mix", "class", "neon", "toxic", "sunset", "void", "fel", "ice" }
-local COLOR_NAMES = { mix = "Mix (each spell)", class = "Class color", neon = "Neon", toxic = "Toxic",
+local COLOR_LIST = { "mix", "catppuccin", "cyberpunk", "class", "neon", "toxic", "sunset", "void", "fel", "ice" }
+local COLOR_NAMES = { mix = "Neon mix (each spell)", catppuccin = "Catppuccin (each spell)",
+    cyberpunk = "Cyberpunk (each spell)", class = "Class color", neon = "Neon", toxic = "Toxic",
     sunset = "Sunset", void = "Void", fel = "Fel", ice = "Ice" }
 
 local panel
@@ -866,7 +889,7 @@ local function buildPanel()
     local function cycle(text, list, names, get, set)
         local r = row()
         label(r, text)
-        local b = uiButton(r, "", 150)
+        local b = uiButton(r, "", 190)
         b:SetPoint("RIGHT")
         b.label:SetJustifyH("CENTER")
         b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
@@ -906,20 +929,23 @@ local function buildPanel()
     strip:SetPoint("TOPLEFT", UI_PAD, y + 2)
     y = y - 16
     local segs = {}
-    for i = 1, #MIX do
+    local most = 1
+    for _, set in pairs(MIXES) do most = math.max(most, #set) end
+    for i = 1, most do
         local t = strip:CreateTexture(nil, "ARTWORK")
         t:SetTexture(SQUARE)
         segs[i] = t
     end
     widgets[#widgets + 1] = { Refresh = function()
-        local n = (db.barColor == "mix") and #MIX or 1
+        local set = MIXES[db.barColor]
+        local n = set and #set or 1
         local w = (UI_INNER - (n - 1) * 3) / n
         for i, t in ipairs(segs) do
             if i <= n then
                 t:ClearAllPoints()
                 t:SetPoint("TOPLEFT", strip, "TOPLEFT", (i - 1) * (w + 3), 0)
                 t:SetSize(w, 8)
-                local a, b = paletteColors(db.barColor, i - 1)   -- Mix: preset i
+                local a, b = paletteColors(db.barColor, i - 1)   -- a mix set: pair i
                 gradient(t, a, b)
                 t:Show()
             else
@@ -1018,15 +1044,12 @@ SlashCmdList.COOLDOWNSKIN = function(msg)
     elseif cmd == "bar" and (a == "top" or a == "bottom" or a == "off") then
         db.bar = a
         say(a == "off" and "timer bar: off" or ("timer bar: " .. a))
-    elseif cmd == "barcolor" and (a == "mix" or a == "class" or BAR_PALETTES[a]) then
+    elseif cmd == "barcolor" and (a == "class" or (a and (MIXES[a] or BAR_PALETTES[a]))) then
         db.barColor = a
-        say("timer bar colors: " .. a)
+        say("timer bar colors: " .. (COLOR_NAMES[a] or a))
         applyBars()
     elseif cmd == "barcolor" then
-        local names = {}
-        for k in pairs(BAR_PALETTES) do names[#names + 1] = k end
-        table.sort(names)
-        return say("/cskin barcolor mix | class | " .. table.concat(names, " | "))
+        return say("/cskin barcolor " .. table.concat(COLOR_LIST, " | "))
     elseif cmd == "barbright" and tonumber(a) then
         db.barBright = math.max(0.3, math.min(1, tonumber(a)))
         say(string.format("bar brightness: %d%%", math.floor(db.barBright * 100 + 0.5)))
@@ -1073,7 +1096,7 @@ SlashCmdList.COOLDOWNSKIN = function(msg)
         say("/cskin border 0-4  - border thickness in pixels")
         say("/cskin bar top | bottom | off  - timer bar while your debuff is up")
         say("/cskin barheight 1-12  - timer bar height in pixels")
-        say("/cskin barcolor mix | class | neon | toxic | sunset | void | fel | ice")
+        say("/cskin barcolor " .. table.concat(COLOR_LIST, " | "))
         say("/cskin barglow  - spark at the bar's end (on/off)")
         say("/cskin barbright 0.3-1  - bar color brightness (1 = full neon)")
         say("/cskin text 0.2-0.8  - timer size")
