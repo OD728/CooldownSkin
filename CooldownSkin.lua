@@ -41,6 +41,7 @@ local DEFAULTS = {
     barHeight = 4,           -- its height in screen pixels (plus a 1 px border)
     barColor = "mix",        -- a BAR_PALETTES name, "class", or "mix" (each spell its own)
     barGlow = true,          -- spark at the bar's moving end
+    barBright = 0.7,         -- brightness of the bar colors (1 = the full neon)
 }
 
 -- Gradient pairs for the timer bar, left to right.
@@ -187,11 +188,19 @@ local function barColors(p)
         -- By the cooldown's own spell, so learning a rank doesn't change it.
         name = MIX[((p.base or 0) % #MIX) + 1]
     end
+    local left, right
     local pal = BAR_PALETTES[name]
-    if pal then return pal[1], pal[2] end
-    -- "class" (or a custom /cskin color): a darker shade into the full color.
-    local r, g, b = accent()
-    return { r * 0.55, g * 0.55, b * 0.55 }, { math.min(1, r * 1.15), math.min(1, g * 1.15), math.min(1, b * 1.15) }
+    if pal then
+        left, right = pal[1], pal[2]
+    else
+        -- "class" (or a custom /cskin color): a darker shade into the full color.
+        local r, g, b = accent()
+        left = { r * 0.55, g * 0.55, b * 0.55 }
+        right = { math.min(1, r * 1.15), math.min(1, g * 1.15), math.min(1, b * 1.15) }
+    end
+    -- Toned down evenly, so the full neon isn't harsh on the eyes.
+    local k = db.barBright or 1
+    return { left[1] * k, left[2] * k, left[3] * k }, { right[1] * k, right[2] * k, right[3] * k }
 end
 
 local function gradient(tex, a, b)
@@ -721,6 +730,12 @@ SlashCmdList.COOLDOWNSKIN = function(msg)
         for k in pairs(BAR_PALETTES) do names[#names + 1] = k end
         table.sort(names)
         return say("/cskin barcolor mix | class | " .. table.concat(names, " | "))
+    elseif cmd == "barbright" and tonumber(a) then
+        db.barBright = math.max(0.3, math.min(1, tonumber(a)))
+        say(string.format("bar brightness: %d%%", math.floor(db.barBright * 100 + 0.5)))
+        if InCombatLockdown() then return say("shows after combat") end
+        rebuildBars()
+        return
     elseif cmd == "barglow" then
         db.barGlow = not db.barGlow
         say(db.barGlow and "bar spark: on" or "bar spark: off")
@@ -767,6 +782,7 @@ SlashCmdList.COOLDOWNSKIN = function(msg)
         say("/cskin barheight 1-12  - timer bar height in pixels")
         say("/cskin barcolor mix | class | neon | toxic | sunset | void | fel | ice")
         say("/cskin barglow  - spark at the bar's end (on/off)")
+        say("/cskin barbright 0.3-1  - bar color brightness (1 = full neon)")
         say("/cskin text 0.2-0.8  - timer size")
         say("/cskin dark 0-1  - swipe darkness while up")
         say("/cskin debug  - why a timer bar isn't showing")

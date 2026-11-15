@@ -37,6 +37,7 @@ Copy this repository's files into a folder named `CooldownSkin` inside
 | `/cskin barheight 1-12` | Timer bar height in pixels |
 | `/cskin barcolor <name>` | Bar colors: `mix` (each spell its own, default), `class`, `neon`, `toxic`, `sunset`, `void`, `fel`, `ice` |
 | `/cskin barglow` | Spark at the bar's end (on/off) |
+| `/cskin barbright 0.3-1` | Bar color brightness (default 0.7, 1 = full neon) |
 | `/cskin reverse` | Flip which way the debuff swipe runs |
 | `/cskin dark 0-1` | Swipe darkness while the debuff is up |
 | `/cskin text 0.2-0.8` | Timer number size |
