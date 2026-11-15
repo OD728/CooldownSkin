@@ -68,12 +68,21 @@ local BAR_PALETTES = {
     cyber_red    = { { 1.00, 0.00, 0.24 }, { 1.00, 0.00, 0.63 } }, -- red to magenta
     cyber_acid   = { { 0.22, 1.00, 0.08 }, { 0.00, 0.94, 1.00 } }, -- acid green to cyan
     cyber_purple = { { 0.69, 0.15, 1.00 }, { 1.00, 0.16, 0.43 } }, -- purple to hot pink
+
+    -- Dracula theme.
+    drac_purple = { { 0.74, 0.58, 0.98 }, { 1.00, 0.47, 0.78 } }, -- purple to pink
+    drac_cyan   = { { 0.55, 0.91, 0.99 }, { 0.74, 0.58, 0.98 } }, -- cyan to purple
+    drac_green  = { { 0.31, 0.98, 0.48 }, { 0.55, 0.91, 0.99 } }, -- green to cyan
+    drac_orange = { { 1.00, 0.72, 0.42 }, { 1.00, 0.33, 0.33 } }, -- orange to red
+    drac_pink   = { { 1.00, 0.47, 0.78 }, { 1.00, 0.33, 0.33 } }, -- pink to red
+    drac_yellow = { { 0.95, 0.98, 0.55 }, { 0.31, 0.98, 0.48 } }, -- yellow to green
 }
 -- Sets where each spell gets its own pair (picked by the spell's id).
 local MIXES = {
     mix        = { "neon", "toxic", "sunset", "void", "fel", "ice" },
     catppuccin = { "ctp_mauve", "ctp_peach", "ctp_teal", "ctp_blue", "ctp_green", "ctp_rose" },
     cyberpunk  = { "cyber_yellow", "cyber_pink", "cyber_cyan", "cyber_red", "cyber_acid", "cyber_purple" },
+    dracula    = { "drac_purple", "drac_cyan", "drac_green", "drac_orange", "drac_pink", "drac_yellow" },
 }
 
 local db
@@ -775,9 +784,9 @@ local function px(v) return string.format("%d px", v) end
 
 local BAR_SPOTS = { "top", "bottom", "off" }
 local BAR_SPOT_NAMES = { top = "Above the icon", bottom = "Below the icon", off = "Off" }
-local COLOR_LIST = { "mix", "catppuccin", "cyberpunk", "class", "neon", "toxic", "sunset", "void", "fel", "ice" }
+local COLOR_LIST = { "mix", "catppuccin", "cyberpunk", "dracula", "class", "neon", "toxic", "sunset", "void", "fel", "ice" }
 local COLOR_NAMES = { mix = "Neon mix (each spell)", catppuccin = "Catppuccin (each spell)",
-    cyberpunk = "Cyberpunk (each spell)", class = "Class color", neon = "Neon", toxic = "Toxic",
+    cyberpunk = "Cyberpunk (each spell)", dracula = "Dracula (each spell)", class = "Class color", neon = "Neon", toxic = "Toxic",
     sunset = "Sunset", void = "Void", fel = "Fel", ice = "Ice" }
 
 local panel
