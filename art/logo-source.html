@@ -1,177 +1,111 @@
 <!doctype html>
-<html><head><meta charset="utf-8">
-<style>html,body{margin:0;padding:0;background:#000;overflow:hidden}canvas{display:block}</style>
-</head><body>
-<canvas id="c" width="512" height="512"></canvas>
+<html><head><meta charset="utf-8"><title>Cooldown Skin logo (Paint style)</title>
+<style>html,body{margin:0;background:#16162a}canvas{display:block}</style></head>
+<body><canvas id="c" width="512" height="512"></canvas>
 <script>
+// Cooldown Skin logo, drawn like a kid did it in MS Paint.
+// Seeded random so every render gives the same picture.
+
+let seed = 37;
+function rnd() { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }
+function jit(n) { return (rnd() - 0.5) * 2 * n; }
+
 const c = document.getElementById('c');
 const g = c.getContext('2d');
-const W = 512;
+const BG = '#16162a', INK = '#fff';
+const used = new Set([BG, INK, '#000']);
+g.fillStyle = BG; g.fillRect(0, 0, 512, 512);
+g.lineCap = 'round'; g.lineJoin = 'round';
 
-// Background: dark with a soft violet center, like the other logos.
-let bg = g.createRadialGradient(256, 236, 20, 256, 256, 380);
-bg.addColorStop(0, '#221a33');
-bg.addColorStop(0.55, '#110e19');
-bg.addColorStop(1, '#060509');
-g.fillStyle = bg;
-g.fillRect(0, 0, W, W);
-
-function rr(x, y, w, h, r) {
+// A shaky line through points: each segment is cut into little steps that wander.
+function shakyPath(pts, wob, closed) {
+  const p = closed ? pts.concat([pts[0]]) : pts;
   g.beginPath();
-  g.moveTo(x + r, y);
-  g.arcTo(x + w, y, x + w, y + h, r);
-  g.arcTo(x + w, y + h, x, y + h, r);
-  g.arcTo(x, y + h, x, y, r);
-  g.arcTo(x, y, x + w, y, r);
-  g.closePath();
-}
-
-// A glowing gradient bar in a black edge, filled to `frac`, with a spark at the end.
-function bar(x, y, w, h, frac, a, b, edge) {
-  g.save();
-  g.fillStyle = '#000';
-  rr(x - edge, y - edge, w + 2 * edge, h + 2 * edge, 3);
-  g.fill();
-  // empty part: dark tint of the first color
-  g.fillStyle = a.replace('rgb', 'rgba').replace(')', ',0.16)');
-  g.fillRect(x, y, w, h);
-  const fw = w * frac;
-  let lg = g.createLinearGradient(x, 0, x + fw, 0);
-  lg.addColorStop(0, a);
-  lg.addColorStop(1, b);
-  g.shadowColor = b;
-  g.shadowBlur = 18;
-  g.fillStyle = lg;
-  g.fillRect(x, y, fw, h);
-  g.shadowBlur = 0;
-  // sheen on top
-  let sh = g.createLinearGradient(0, y, 0, y + h);
-  sh.addColorStop(0, 'rgba(255,255,255,0.28)');
-  sh.addColorStop(0.5, 'rgba(255,255,255,0.0)');
-  g.fillStyle = sh;
-  g.fillRect(x, y, fw, h);
-  // spark
-  const sx = x + fw, sy = y + h / 2;
-  const k = Math.min(h, 16);
-  let sp = g.createRadialGradient(sx, sy, 0, sx, sy, k * 1.6);
-  sp.addColorStop(0, 'rgba(255,255,255,0.95)');
-  sp.addColorStop(0.35, b.replace('rgb', 'rgba').replace(')', ',0.7)'));
-  sp.addColorStop(1, 'rgba(0,0,0,0)');
-  g.globalCompositeOperation = 'lighter';
-  g.fillStyle = sp;
-  g.beginPath();
-  g.ellipse(sx, sy, k * 0.7, Math.max(h * 0.75, k * 1.6), 0, 0, Math.PI * 2);
-  g.fill();
-  g.globalCompositeOperation = 'source-over';
-  g.restore();
-}
-
-// Glyphs drawn inside the tiles (our own shapes, not game icons).
-function swirl(cx, cy, s, col) {
-  g.save();
-  g.strokeStyle = col; g.lineWidth = s * 0.09; g.lineCap = 'round';
-  g.shadowColor = col; g.shadowBlur = 12;
-  g.beginPath();
-  for (let t = 0; t < Math.PI * 5; t += 0.05) {
-    const r = s * 0.04 + t * s * 0.024;
-    const px = cx + Math.cos(t) * r, py = cy + Math.sin(t) * r;
-    t === 0 ? g.moveTo(px, py) : g.lineTo(px, py);
+  g.moveTo(p[0][0] + jit(wob), p[0][1] + jit(wob));
+  for (let i = 1; i < p.length; i++) {
+    const [ax, ay] = p[i - 1], [bx, by] = p[i];
+    const steps = Math.max(2, Math.round(Math.hypot(bx - ax, by - ay) / 18));
+    for (let s = 1; s <= steps; s++) {
+      const t = s / steps;
+      g.lineTo(ax + (bx - ax) * t + jit(wob), ay + (by - ay) * t + jit(wob));
+    }
   }
-  g.stroke();
-  g.restore();
 }
-function bolt(cx, cy, s, col) {
-  g.save();
-  g.fillStyle = col; g.shadowColor = col; g.shadowBlur = 14;
-  g.beginPath();
-  const p = [[0.10, -0.42], [-0.22, 0.04], [-0.02, 0.04], [-0.12, 0.42], [0.24, -0.06], [0.03, -0.06], [0.14, -0.42]];
-  p.forEach(([u, v], i) => { const px = cx + u * s, py = cy + v * s; i ? g.lineTo(px, py) : g.moveTo(px, py); });
-  g.closePath(); g.fill();
-  g.restore();
+function stroke(pts, color, width, wob, closed) {
+  used.add(color); g.strokeStyle = color; g.lineWidth = width;
+  shakyPath(pts, wob, closed); g.stroke();
 }
-function moon(cx, cy, s, col) {
-  g.save();
-  g.fillStyle = col; g.shadowColor = col; g.shadowBlur = 14;
-  g.beginPath();
-  g.arc(cx, cy, s * 0.34, 0, Math.PI * 2);
-  g.arc(cx + s * 0.15, cy - s * 0.1, s * 0.29, 0, Math.PI * 2, true);
-  g.fill('evenodd');
-  g.restore();
+// "Paint bucket": fill slightly off from the outline, so it leaks and misses.
+function sloppyFill(pts, color, dx, dy) {
+  used.add(color); g.fillStyle = color;
+  shakyPath(pts.map(([x, y]) => [x + dx, y + dy]), 5, true); g.fill();
 }
-
-// A square cooldown tile: black border, colored face, glyph, dark swipe, number.
-function tile(x, y, s, c1, c2, glyph, gcol, swipe, num) {
-  g.save();
-  g.fillStyle = '#000';
-  rr(x - 7, y - 7, s + 14, s + 14, 5);
-  g.fill();
-  let fg = g.createRadialGradient(x + s * 0.4, y + s * 0.35, 4, x + s / 2, y + s / 2, s * 0.8);
-  fg.addColorStop(0, c1);
-  fg.addColorStop(1, c2);
-  g.fillStyle = fg;
-  g.fillRect(x, y, s, s);
-  glyph(x + s / 2, y + s / 2, s, gcol);
-  // dark swipe: the part of the debuff that has run out
-  g.save();
-  g.beginPath(); g.rect(x, y, s, s); g.clip();
-  g.fillStyle = 'rgba(0,0,0,0.6)';
-  g.beginPath();
-  g.moveTo(x + s / 2, y + s / 2);
-  g.arc(x + s / 2, y + s / 2, s, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * swipe);
-  g.closePath(); g.fill();
-  g.restore();
-  // inner shade
-  let ish = g.createLinearGradient(0, y, 0, y + s);
-  ish.addColorStop(0, 'rgba(255,255,255,0.10)');
-  ish.addColorStop(1, 'rgba(0,0,0,0.25)');
-  g.fillStyle = ish;
-  g.fillRect(x, y, s, s);
-  // number
-  g.font = 'bold ' + Math.round(s * 0.44) + 'px "Segoe UI", Arial, sans-serif';
+// Fill + white outline in one go.
+function shape(pts, fill, off, width) {
+  sloppyFill(pts, fill, off[0], off[1]);
+  stroke(pts, INK, width || 7, 4, true);
+}
+function circle(cx, cy, r, n) {
+  const pts = []; n = n || 14;
+  for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2; pts.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]); }
+  return pts;
+}
+function poly(cx, cy, r, n, rot) {
+  const pts = [];
+  for (let i = 0; i < n; i++) { const a = rot + i / n * Math.PI * 2; pts.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]); }
+  return pts;
+}
+function rect(x, y, w, h) { return [[x, y], [x + w, y], [x + w, y + h], [x, y + h]]; }
+function star(cx, cy, r1, r2) {
+  const pts = [];
+  for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? r2 : r1; pts.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]); }
+  return pts;
+}
+// Big wobbly "handwriting".
+function scrawl(text, x, y, size, color) {
+  used.add(color); g.fillStyle = color;
+  g.font = 'bold ' + size + 'px "Comic Sans MS", cursive';
   g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.lineJoin = 'round';
-  g.lineWidth = s * 0.075; g.strokeStyle = '#000';
-  g.strokeText(num, x + s / 2, y + s / 2 + 3);
-  g.fillStyle = '#fff';
-  g.fillText(num, x + s / 2, y + s / 2 + 3);
-  g.restore();
+  let cx = x - g.measureText(text).width / 2;
+  for (const ch of text) {
+    const w = g.measureText(ch).width;
+    g.save(); g.translate(cx + w / 2, y + jit(4)); g.rotate(jit(0.12)); g.fillText(ch, 0, 0); g.restore();
+    cx += w;
+  }
 }
 
-const S = 112, GAP = 30;
-const X0 = (W - (3 * S + 2 * GAP)) / 2;
-const TY = 164;
 
-const tiles = [
-  { c1: '#5fd35a', c2: '#123d14', glyph: swirl, gcol: 'rgba(220,255,200,0.9)', swipe: 0.30, num: '28',
-    a: 'rgb(252,237,10)', b: 'rgb(5,217,232)', frac: 0.70 },       // Cyberpunk
-  { c1: '#f08a4b', c2: '#4a1608', glyph: bolt, gcol: 'rgba(255,240,200,0.95)', swipe: 0.55, num: '19',
-    a: 'rgb(203,166,247)', b: 'rgb(245,194,231)', frac: 0.45 },     // Catppuccin
-  { c1: '#b46cf0', c2: '#2a0c46', glyph: moon, gcol: 'rgba(240,225,255,0.95)', swipe: 0.15, num: '14',
-    a: 'rgb(0,255,255)', b: 'rgb(255,0,255)', frac: 0.85 },         // Neon
-];
+// Three spell icons with cooldown sweeps and timers, little bars on top.
+const icons = [[36, '#22bb44', '28'], [190, '#ee7733', '19'], [344, '#a050ff', '14']];
+for (const [x, col, n] of icons) {
+  sloppyFill(rect(x + 8, 90, 120 * (0.3 + rnd() * 0.6), 20), col, 3, 2);
+  stroke(rect(x, 88, 132, 24), INK, 5, 2, true);
+  sloppyFill(rect(x, 140, 132, 132), col, 6, 5);
+  // the dark cooldown wedge, scribbled in
+  used.add('#0b0b18'); g.fillStyle = '#0b0b18';
+  g.beginPath(); g.moveTo(x + 66, 206); g.arc(x + 66, 206, 74, -Math.PI / 2, -Math.PI / 2 + Math.PI * (0.6 + rnd() * 0.5)); g.closePath();
+  g.save(); g.clip(new Path2D('M' + x + ' 140h132v132h-' + 132 + 'z')); g.fill(); g.restore();
+  stroke(rect(x, 140, 132, 132), INK, 8, 4, true);
+  scrawl(n, x + 66, 208, 62, INK);
+}
+sloppyFill(rect(110, 344, 240, 52), '#3377ff', 5, 4);
+stroke(rect(36, 344, 440, 52), INK, 7, 3, true);
+shape(rect(36, 344, 56, 52), '#33aaff', [3, 2], 6);
+stroke([[70,352],[56,372],[70,372],[58,390]], '#ffee00', 5, 1);
+scrawl('12', 420, 370, 36, INK);
 
-tiles.forEach((t, i) => {
-  const x = X0 + i * (S + GAP);
-  bar(x, TY - 7 - 12 - 14, S, 14, t.frac, t.a, t.b, 4);
-  tile(x, TY, S, t.c1, t.c2, t.glyph, t.gcol, t.swipe, t.num);
-});
 
-// A skinned Tracked Bar underneath.
-const BY = TY + S + 62, BH = 46;
-const IX = X0;
-g.fillStyle = '#000';
-rr(IX - 5, BY - 5, BH + 10, BH + 10, 4); g.fill();
-let ig = g.createRadialGradient(IX + BH * 0.4, BY + BH * 0.35, 3, IX + BH / 2, BY + BH / 2, BH * 0.8);
-ig.addColorStop(0, '#3fb6e8'); ig.addColorStop(1, '#0a2a46');
-g.fillStyle = ig; g.fillRect(IX, BY, BH, BH);
-bolt(IX + BH / 2, BY + BH / 2, BH, 'rgba(225,245,255,0.95)');
-const BX = IX + BH + 18, BW = X0 + 3 * S + 2 * GAP - BX;
-bar(BX, BY + 4, BW, BH - 8, 0.62, 'rgb(166,0,255)', 'rgb(0,140,255)', 5);
-g.font = 'bold 26px "Segoe UI", Arial, sans-serif';
-g.textAlign = 'right'; g.textBaseline = 'middle';
-g.lineWidth = 5; g.strokeStyle = '#000'; g.lineJoin = 'round';
-g.strokeText('12', BX + BW - 12, BY + BH / 2 + 1);
-g.fillStyle = '#fff';
-g.fillText('12', BX + BW - 12, BY + BH / 2 + 1);
-</script>
-</body></html>
+// MS Paint has no smoothing: snap every pixel to the nearest color this page used.
+const palette = [...used].map(h => [1, 3, 5].map(i => parseInt(h.length === 4 ? h[(i + 1) / 2].repeat(2) : h.substr(i, 2), 16)));
+const img = g.getImageData(0, 0, 512, 512), d = img.data;
+for (let i = 0; i < d.length; i += 4) {
+  let best = palette[0], bd = 1e9;
+  for (const p of palette) {
+    const dd = (d[i]-p[0])**2 + (d[i+1]-p[1])**2 + (d[i+2]-p[2])**2;
+    if (dd < bd) { bd = dd; best = p; }
+  }
+  d[i] = best[0]; d[i+1] = best[1]; d[i+2] = best[2]; d[i+3] = 255;
+}
+g.putImageData(img, 0, 0);
+
+</script></body></html>
