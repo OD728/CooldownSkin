@@ -76,6 +76,64 @@ local BAR_PALETTES = {
     drac_orange = { { 1.00, 0.72, 0.42 }, { 1.00, 0.33, 0.33 } }, -- orange to red
     drac_pink   = { { 1.00, 0.47, 0.78 }, { 1.00, 0.33, 0.33 } }, -- pink to red
     drac_yellow = { { 0.95, 0.98, 0.55 }, { 0.31, 0.98, 0.48 } }, -- yellow to green
+
+    -- Gruvbox (bright colors, around the color wheel).
+    gruv_red    = { { 0.98, 0.29, 0.20 }, { 1.00, 0.50, 0.10 } }, -- red to orange
+    gruv_orange = { { 1.00, 0.50, 0.10 }, { 0.98, 0.74, 0.18 } }, -- orange to yellow
+    gruv_yellow = { { 0.98, 0.74, 0.18 }, { 0.72, 0.73, 0.15 } }, -- yellow to green
+    gruv_green  = { { 0.72, 0.73, 0.15 }, { 0.56, 0.75, 0.49 } }, -- green to aqua
+    gruv_aqua   = { { 0.56, 0.75, 0.49 }, { 0.51, 0.65, 0.60 } }, -- aqua to blue
+    gruv_blue   = { { 0.51, 0.65, 0.60 }, { 0.83, 0.53, 0.61 } }, -- blue to purple
+
+    -- Rosé Pine (Main).
+    rose_love = { { 0.92, 0.44, 0.57 }, { 0.92, 0.74, 0.73 } }, -- love to rose
+    rose_gold = { { 0.96, 0.76, 0.47 }, { 0.92, 0.44, 0.57 } }, -- gold to love
+    rose_rose = { { 0.92, 0.74, 0.73 }, { 0.77, 0.65, 0.91 } }, -- rose to iris
+    rose_iris = { { 0.77, 0.65, 0.91 }, { 0.61, 0.81, 0.85 } }, -- iris to foam
+    rose_foam = { { 0.61, 0.81, 0.85 }, { 0.19, 0.45, 0.56 } }, -- foam to pine
+    rose_pine = { { 0.19, 0.45, 0.56 }, { 0.77, 0.65, 0.91 } }, -- pine to iris
+
+    -- Kanagawa (Wave).
+    kana_violet = { { 0.58, 0.50, 0.72 }, { 0.82, 0.49, 0.60 } }, -- oniViolet to sakuraPink
+    kana_blue   = { { 0.49, 0.61, 0.85 }, { 0.50, 0.71, 0.79 } }, -- crystalBlue to springBlue
+    kana_green  = { { 0.60, 0.73, 0.42 }, { 0.48, 0.66, 0.62 } }, -- springGreen to waveAqua
+    kana_yellow = { { 0.90, 0.76, 0.52 }, { 1.00, 0.63, 0.40 } }, -- carpYellow to surimiOrange
+    kana_red    = { { 0.89, 0.41, 0.46 }, { 1.00, 0.63, 0.40 } }, -- waveRed to surimiOrange
+    kana_spring = { { 0.50, 0.71, 0.79 }, { 0.58, 0.50, 0.72 } }, -- springBlue to oniViolet
+
+    -- OneDark (Dark), around the color wheel.
+    one_purple = { { 0.78, 0.47, 0.87 }, { 0.38, 0.69, 0.94 } }, -- purple to blue
+    one_blue   = { { 0.38, 0.69, 0.94 }, { 0.34, 0.71, 0.76 } }, -- blue to cyan
+    one_cyan   = { { 0.34, 0.71, 0.76 }, { 0.60, 0.76, 0.47 } }, -- cyan to green
+    one_green  = { { 0.60, 0.76, 0.47 }, { 0.90, 0.75, 0.48 } }, -- green to yellow
+    one_yellow = { { 0.90, 0.75, 0.48 }, { 0.82, 0.60, 0.40 } }, -- yellow to orange
+    one_orange = { { 0.82, 0.60, 0.40 }, { 0.91, 0.40, 0.44 } }, -- orange to red
+
+    -- Tokyo Night (Night).
+    tokyo_blue   = { { 0.48, 0.64, 0.97 }, { 0.73, 0.60, 0.97 } }, -- blue to magenta
+    tokyo_cyan   = { { 0.49, 0.81, 1.00 }, { 0.48, 0.64, 0.97 } }, -- cyan to blue
+    tokyo_green  = { { 0.62, 0.81, 0.42 }, { 0.10, 0.74, 0.61 } }, -- green to teal
+    tokyo_yellow = { { 0.88, 0.69, 0.41 }, { 1.00, 0.62, 0.39 } }, -- yellow to orange
+    tokyo_orange = { { 1.00, 0.62, 0.39 }, { 0.97, 0.46, 0.56 } }, -- orange to red
+    tokyo_purple = { { 0.62, 0.49, 0.85 }, { 0.97, 0.46, 0.56 } }, -- purple to red
+
+    -- Classic: the default UI's own bar colors, a little darker at the start
+    -- (same values as XP Rail). Mana is lighter than the game's pure blue,
+    -- which looks almost black on a thin bar.
+    cl_health = { { 0.00, 0.60, 0.00 }, { 0.00, 1.00, 0.00 } },
+    cl_mana   = { { 0.00, 0.18, 0.70 }, { 0.10, 0.40, 1.00 } },
+    cl_rage   = { { 0.60, 0.00, 0.00 }, { 1.00, 0.00, 0.00 } },
+    cl_energy = { { 0.75, 0.65, 0.00 }, { 1.00, 1.00, 0.00 } },
+    cl_cast   = { { 0.80, 0.55, 0.00 }, { 1.00, 0.70, 0.00 } },
+    cl_rested = { { 0.00, 0.25, 0.60 }, { 0.00, 0.39, 0.88 } },
+
+    -- Item quality colors (same values as XP Rail).
+    q_uncommon  = { { 0.08, 0.65, 0.00 }, { 0.12, 1.00, 0.00 } },
+    q_rare      = { { 0.00, 0.29, 0.58 }, { 0.00, 0.44, 0.87 } },
+    q_epic      = { { 0.42, 0.14, 0.62 }, { 0.64, 0.21, 0.93 } },
+    q_legendary = { { 0.70, 0.33, 0.00 }, { 1.00, 0.50, 0.00 } },
+    q_artifact  = { { 0.58, 0.52, 0.33 }, { 0.90, 0.80, 0.50 } },
+    q_heirloom  = { { 0.00, 0.52, 0.65 }, { 0.00, 0.80, 1.00 } },
 }
 -- Sets where each spell gets its own pair (picked by the spell's id).
 local MIXES = {
@@ -83,6 +141,13 @@ local MIXES = {
     catppuccin = { "ctp_mauve", "ctp_peach", "ctp_teal", "ctp_blue", "ctp_green", "ctp_rose" },
     cyberpunk  = { "cyber_yellow", "cyber_pink", "cyber_cyan", "cyber_red", "cyber_acid", "cyber_purple" },
     dracula    = { "drac_purple", "drac_cyan", "drac_green", "drac_orange", "drac_pink", "drac_yellow" },
+    gruvbox    = { "gruv_red", "gruv_orange", "gruv_yellow", "gruv_green", "gruv_aqua", "gruv_blue" },
+    rosepine   = { "rose_love", "rose_gold", "rose_rose", "rose_iris", "rose_foam", "rose_pine" },
+    kanagawa   = { "kana_violet", "kana_blue", "kana_green", "kana_yellow", "kana_red", "kana_spring" },
+    onedark    = { "one_purple", "one_blue", "one_cyan", "one_green", "one_yellow", "one_orange" },
+    tokyonight = { "tokyo_blue", "tokyo_cyan", "tokyo_green", "tokyo_yellow", "tokyo_orange", "tokyo_purple" },
+    classic    = { "cl_health", "cl_mana", "cl_rage", "cl_energy", "cl_cast", "cl_rested" },
+    quality    = { "q_uncommon", "q_rare", "q_epic", "q_legendary", "q_artifact", "q_heirloom" },
 }
 
 local db
@@ -784,10 +849,47 @@ local function px(v) return string.format("%d px", v) end
 
 local BAR_SPOTS = { "top", "bottom", "off" }
 local BAR_SPOT_NAMES = { top = "Above the icon", bottom = "Below the icon", off = "Off" }
-local COLOR_LIST = { "mix", "catppuccin", "cyberpunk", "dracula", "class", "neon", "toxic", "sunset", "void", "fel", "ice" }
+-- The sets for /cskin help (any single pair key works with /cskin barcolor too).
+local COLOR_LIST = { "class", "classic", "quality", "mix", "cyberpunk", "dracula", "gruvbox",
+    "catppuccin", "rosepine", "kanagawa", "onedark", "tokyonight" }
+-- Row labels in the color menu, by set.
+local FAMILY_NAMES = { mix = "Neon", catppuccin = "Catppuccin", cyberpunk = "Cyberpunk", dracula = "Dracula",
+    gruvbox = "Gruvbox", rosepine = "Rosé Pine", kanagawa = "Kanagawa", onedark = "OneDark",
+    tokyonight = "Tokyo Night", classic = "Classic", quality = "Quality", class = "Class" }
+-- Which set each single pair belongs to, for its name ("gruv_red" -> "Gruvbox Red").
+local PAIR_SET = {}
+for set, list in pairs(MIXES) do
+    for _, key in ipairs(list) do PAIR_SET[key] = set end
+end
+
+-- The rows of the color menu, top to bottom: each is a MIXES set (its striped
+-- "each spell" swatch, then its six pairs) or "class" (one swatch). Same order in
+-- all the addons: their own row, WoW colors, neon styles, then the color schemes
+-- in the order of the Colorschemes page.
+local BAR_ORDER = { "class", "classic", "quality", "mix", "cyberpunk", "dracula", "gruvbox",
+    "catppuccin", "rosepine", "kanagawa", "onedark", "tokyonight" }
+
 local COLOR_NAMES = { mix = "Neon mix (each spell)", catppuccin = "Catppuccin (each spell)",
-    cyberpunk = "Cyberpunk (each spell)", dracula = "Dracula (each spell)", class = "Class color", neon = "Neon", toxic = "Toxic",
-    sunset = "Sunset", void = "Void", fel = "Fel", ice = "Ice" }
+    cyberpunk = "Cyberpunk (each spell)", dracula = "Dracula (each spell)",
+    gruvbox = "Gruvbox (each spell)", rosepine = "Rosé Pine (each spell)",
+    kanagawa = "Kanagawa (each spell)", onedark = "OneDark (each spell)",
+    tokyonight = "Tokyo Night (each spell)", classic = "Classic WoW (each spell)",
+    quality = "Item quality (each spell)", class = "Class color", neon = "Neon", toxic = "Toxic",
+    sunset = "Sunset", void = "Void", fel = "Fel", ice = "Ice",
+    -- Game colors in the client's own words.
+    cl_health = HEALTH or "Health", cl_mana = MANA or "Mana", cl_rage = RAGE or "Rage",
+    cl_energy = ENERGY or "Energy", cl_cast = "Cast bar", cl_rested = "Rested",
+    q_uncommon = ITEM_QUALITY2_DESC or "Uncommon", q_rare = ITEM_QUALITY3_DESC or "Rare",
+    q_epic = ITEM_QUALITY4_DESC or "Epic", q_legendary = ITEM_QUALITY5_DESC or "Legendary",
+    q_artifact = ITEM_QUALITY6_DESC or "Artifact", q_heirloom = ITEM_QUALITY7_DESC or "Heirloom" }
+
+-- A color choice's name: a set, a named preset, or "<Theme> <Color>" for a pair.
+local function colorName(key)
+    if COLOR_NAMES[key] then return COLOR_NAMES[key] end
+    local set, word = PAIR_SET[key], key:match("_(%a+)$")
+    if set and word then return FAMILY_NAMES[set] .. " " .. word:sub(1, 1):upper() .. word:sub(2) end
+    return tostring(key)
+end
 
 local panel
 local function buildPanel()
@@ -929,37 +1031,89 @@ local function buildPanel()
         function(v) db.bar = v; refreshAll() end)
     stepper("Small bar height", function() return db.barHeight end,
         function(v) db.barHeight = v; refreshAll() end, 1, 1, 12, px)
-    cycle("Colors", COLOR_LIST, COLOR_NAMES, function() return db.barColor end,
-        function(v) db.barColor = v; applyBars() end)
+    -- Color menu: one row per set. The striped swatch gives each spell its own pair
+    -- from the set; the six after it use one pair for every spell. Click to pick,
+    -- hover for the name; the white ring marks the current choice.
+    local current = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    current:SetPoint("TOPLEFT", UI_PAD, y - 2)
+    y = y - 22
+    widgets[#widgets + 1] = { Refresh = function() current:SetText("Colors: " .. colorName(db.barColor)) end }
 
-    -- Preview of the chosen colors: one strip, or one per preset for Mix.
-    local strip = CreateFrame("Frame", nil, f)
-    strip:SetSize(UI_INNER, 8)
-    strip:SetPoint("TOPLEFT", UI_PAD, y + 2)
-    y = y - 16
-    local segs = {}
-    local most = 1
-    for _, set in pairs(MIXES) do most = math.max(most, #set) end
-    for i = 1, most do
-        local t = strip:CreateTexture(nil, "ARTWORK")
-        t:SetTexture(SQUARE)
-        segs[i] = t
+    local SW_W, SW_H, SW_GAP, ROW_H = 30, 14, 4, 19
+    local LABEL_W = UI_INNER - 7 * (SW_W + SW_GAP) + SW_GAP
+    local swatches = {}
+    local function swatch(x, key, paint)
+        local s = CreateFrame("Button", nil, f)
+        s:SetSize(SW_W, SW_H)
+        s:SetPoint("TOPLEFT", UI_PAD + x, y)
+        local ring = s:CreateTexture(nil, "BACKGROUND")
+        ring:SetPoint("TOPLEFT", -2, 2)
+        ring:SetPoint("BOTTOMRIGHT", 2, -2)
+        ring:SetColorTexture(1, 1, 1, 1)
+        local edge = s:CreateTexture(nil, "BORDER")
+        edge:SetAllPoints()
+        edge:SetColorTexture(0, 0, 0, 1)
+        s:SetScript("OnClick", function() db.barColor = key; applyBars(); refreshWidgets() end)
+        s:SetScript("OnEnter", function(self)
+            GameTooltip:SetOwner(self, "ANCHOR_TOP")
+            GameTooltip:SetText(colorName(key))
+            GameTooltip:Show()
+        end)
+        s:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        swatches[#swatches + 1] = { key = key, ring = ring, paint = paint(s) }
     end
-    widgets[#widgets + 1] = { Refresh = function()
-        local set = MIXES[db.barColor]
-        local n = set and #set or 1
-        local w = (UI_INNER - (n - 1) * 3) / n
-        for i, t in ipairs(segs) do
-            if i <= n then
-                t:ClearAllPoints()
-                t:SetPoint("TOPLEFT", strip, "TOPLEFT", (i - 1) * (w + 3), 0)
-                t:SetSize(w, 8)
-                local a, b = paletteColors(db.barColor, i - 1)   -- a mix set: pair i
-                gradient(t, a, b)
-                t:Show()
-            else
-                t:Hide()
+    -- One gradient filling the swatch.
+    local function onePair(key)
+        return function(s)
+            local t = s:CreateTexture(nil, "ARTWORK")
+            t:SetPoint("TOPLEFT", 1, -1)
+            t:SetPoint("BOTTOMRIGHT", -1, 1)
+            t:SetTexture(SQUARE)
+            return function() gradient(t, paletteColors(key)) end
+        end
+    end
+    -- Thin stripes, one per pair in the set.
+    local function stripes(set)
+        return function(s)
+            local list, ts = MIXES[set], {}
+            local w = (SW_W - 2) / #list
+            for i = 1, #list do
+                local t = s:CreateTexture(nil, "ARTWORK")
+                t:SetPoint("TOPLEFT", 1 + (i - 1) * w, -1)
+                t:SetSize(w, SW_H - 2)
+                t:SetTexture(SQUARE)
+                ts[i] = t
             end
+            return function()
+                for i, t in ipairs(ts) do gradient(t, paletteColors(list[i])) end
+            end
+        end
+    end
+
+    for _, set in ipairs(BAR_ORDER) do
+        if set == "class" or MIXES[set] then
+            local fl = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+            fl:SetPoint("TOPLEFT", UI_PAD, y - 1)
+            fl:SetWidth(LABEL_W - 4)
+            fl:SetJustifyH("LEFT")
+            fl:SetWordWrap(false)
+            fl:SetText(FAMILY_NAMES[set] or set)
+            if set == "class" then
+                swatch(LABEL_W, "class", onePair("class"))
+            else
+                swatch(LABEL_W, set, stripes(set))
+                for i, key in ipairs(MIXES[set]) do
+                    swatch(LABEL_W + i * (SW_W + SW_GAP), key, onePair(key))
+                end
+            end
+            y = y - ROW_H
+        end
+    end
+    y = y - 6
+    widgets[#widgets + 1] = { Refresh = function()
+        for _, sw in ipairs(swatches) do
+            sw.paint()
+            sw.ring:SetShown(sw.key == db.barColor)
         end
     end }
 

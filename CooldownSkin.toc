@@ -1,7 +1,8 @@
 ## Interface: 16001
 ## Title: |cffcca3ffCooldown Skin|r
 ## Notes: Cleaner look for the game's Cooldown Manager: square icons in black borders, neon timer bars, skinned Tracked Bars and crisp timers. /cskin for options.
-## Version: 1.0
+## Version: 1.1
+## X-Curse-Project-ID: 1806950
 ## Author: Ron
 ## X-License: MIT
 ## SavedVariables: CooldownSkinDB

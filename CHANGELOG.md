@@ -1,5 +1,12 @@
 # Cooldown Skin changelog
 
+## 1.1
+
+- **Color menu** in `/cskin`: every color is a swatch, one row per theme, instead of a button to click through. Hover a swatch for its name; your current pick has a white ring, and the swatches follow the Brightness setting.
+- Each row has a striped swatch for the whole set (every spell gets its own color pair) and six single pairs (one pair for every spell). Single pairs are new.
+- New color sets: **Gruvbox, Rosé Pine, Kanagawa, OneDark and Tokyo Night**, plus **Classic** (the game's own bar colors: health, mana, rage, energy, cast bar, rested) and **Item quality** (uncommon to heirloom).
+- The color rows are in the same order as in the author's other addons.
+
 ## 1.0
 
 First release.

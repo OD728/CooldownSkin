@@ -11,8 +11,10 @@
   dark swipe grows as it runs out. The border stays black, or takes your class color
   with `/cskin highlight`.
 - A thin timer bar above the icon while the debuff is up, in gradient colors with a
-  spark at its end: Neon, Catppuccin, Cyberpunk or Dracula sets that give each spell
-  its own pair, your class color, or a single preset. The game client fills it
+  spark at its end. Pick them from a color menu: a whole set where each spell gets
+  its own pair, one pair for every spell, or your class color. Sets: Classic (the
+  game's bar colors), Item quality, Neon, Cyberpunk, Dracula, Gruvbox, Catppuccin,
+  Rosé Pine, Kanagawa, OneDark and Tokyo Night. The game client fills the bar
   itself, so it keeps running in combat. It covers your debuffs on an enemy, your
   HoTs and buffs on a friendly target, and buffs on yourself, whichever rank you cast.
 - Outlined timer numbers sized to the icon.
@@ -48,7 +50,7 @@ Everything in the window can also be set by command.
 | `/cskin border 0-4` | Border thickness in pixels |
 | `/cskin bar top \| bottom \| off` | Where the timer bar goes, or none |
 | `/cskin barheight 1-12` | Timer bar height in pixels |
-| `/cskin barcolor <name>` | Bar colors. Each spell its own pair: `mix` (neon, default), `catppuccin`, `cyberpunk`, `dracula`. One for all: `class`, `neon`, `toxic`, `sunset`, `void`, `fel`, `ice` |
+| `/cskin barcolor <name>` | Bar colors. A set, each spell its own pair: `classic`, `quality`, `mix` (neon, default), `cyberpunk`, `dracula`, `gruvbox`, `catppuccin`, `rosepine`, `kanagawa`, `onedark`, `tokyonight`. Or `class`, or one pair for all, such as `gruv_red` (names in the color menu's tooltips, lowercase with `_`) |
 | `/cskin barglow` | Spark at the bar's end (on/off) |
 | `/cskin barbright 0.3-1` | Bar color brightness (default 0.7, 1 = full neon) |
 | `/cskin reverse` | Flip which way the debuff swipe runs |
